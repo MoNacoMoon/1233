@@ -48,8 +48,11 @@ class FeedbackState(StatesGroup):
 # ==============================================================================
 # 2. БАЗА ДАННЫХ SQLITE (barbershop.db)
 # ==============================================================================
+DB_PATH = os.environ.get("DB_PATH", "/data/barbershop.db" if os.path.exists("/data") else "barbershop.db")
+
+
 def init_db():
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
     # Таблица постоянных профилей клиентов
@@ -173,7 +176,7 @@ def init_db():
 def save_or_update_client_profile(user_id: int, name: str, phone: str):
     if not user_id:
         return
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO client_profiles (user_id, full_name, phone, updated_at)
@@ -190,7 +193,7 @@ def save_or_update_client_profile(user_id: int, name: str, phone: str):
 def get_client_profile(user_id: int):
     if not user_id:
         return None
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT full_name, phone FROM client_profiles WHERE user_id = ?", (user_id,))
     row = cur.fetchone()
@@ -203,7 +206,7 @@ def get_client_profile(user_id: int):
 
 
 def save_appointment(user_id, name, phone, barber, service, date, time, extra_services="", total_price=0):
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO appointments (
@@ -219,7 +222,7 @@ def save_appointment(user_id, name, phone, barber, service, date, time, extra_se
 
 
 def get_booked_times(barber: str, date_str: str):
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     if barber == "Любой мастер":
         cur.execute("""
@@ -244,7 +247,7 @@ def get_booked_times(barber: str, date_str: str):
 
 
 def get_user_active_bookings(user_id: int):
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         SELECT id, barber, service, booking_date, booking_time, extra_services, total_price, status
@@ -270,7 +273,7 @@ def get_user_active_bookings(user_id: int):
 
 
 def cancel_booking_in_db(record_id: int, user_id: int = None):
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     if user_id:
         cur.execute("SELECT id, barber, booking_date, booking_time, user_name FROM appointments WHERE id = ? AND user_id = ?", (record_id, user_id))
@@ -287,7 +290,7 @@ def cancel_booking_in_db(record_id: int, user_id: int = None):
 
 
 def mark_review_done(record_id: int):
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("UPDATE appointments SET review_status = 'done' WHERE id = ?", (record_id,))
     conn.commit()
@@ -295,7 +298,7 @@ def mark_review_done(record_id: int):
 
 
 def is_review_needed(record_id: int) -> bool:
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT status, review_status FROM appointments WHERE id = ?", (record_id,))
     row = cur.fetchone()
@@ -307,7 +310,7 @@ def save_master_rating(user_id, user_name, barber_id, rating, tag=None, comment=
     profile = get_client_profile(user_id) if user_id else None
     actual_name = profile["full_name"] if (profile and profile.get("full_name")) else user_name
 
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO internal_reviews (user_id, user_name, barber_id, rating, tag, comment)
@@ -319,7 +322,7 @@ def save_master_rating(user_id, user_name, barber_id, rating, tag=None, comment=
 
 
 def get_master_reviews_db(barber_id: str):
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         SELECT user_name, rating, tag, comment, strftime('%d.%m', created_at)
@@ -444,7 +447,7 @@ async def cmd_add_work(message: types.Message, command: CommandObject):
     img_url = parts[0]
     caption = parts[1] if len(parts) > 1 else "Новая работа мастера"
 
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO instagram_works (image_url, caption, tag, barber_name, instagram_url)
@@ -473,7 +476,7 @@ async def handle_staff_photo(message: types.Message):
     caption = message.caption or "Новая работа из Instagram"
     tag = "Fade" if "fade" in caption.lower() else ("Борода" if "бород" in caption.lower() else "Стрижка")
 
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO instagram_works (image_url, caption, tag, barber_name, instagram_url)
@@ -511,7 +514,7 @@ async def cmd_admin(message: types.Message):
 @dp.callback_query(F.data == "adm_schedule_today")
 async def adm_schedule_today_handler(callback: types.CallbackQuery):
     today_str = datetime.now().strftime("%d.%m")
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         SELECT id, booking_time, user_name, phone, service, total_price, extra_services
@@ -542,7 +545,7 @@ async def adm_schedule_today_handler(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "adm_revenue_today")
 async def adm_revenue_today_handler(callback: types.CallbackQuery):
     today_str = datetime.now().strftime("%d.%m")
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         SELECT COUNT(*), SUM(total_price)
@@ -564,7 +567,7 @@ async def adm_revenue_today_handler(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "adm_pilot_stats")
 async def adm_pilot_stats_handler(callback: types.CallbackQuery):
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*), SUM(total_price) FROM appointments WHERE barber = ? AND status = 'active'", (DEFAULT_MASTER_NAME,))
     active_count, active_total = cur.fetchone()
@@ -607,7 +610,7 @@ async def do_block_slot_callback(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     slot_time = parts[2]
     slot_date = parts[3]
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("INSERT INTO blocked_slots (barber, booking_date, booking_time, reason) VALUES (?, ?, ?, ?)", (DEFAULT_MASTER_NAME, slot_date, slot_time, "Перерыв мастера"))
     conn.commit()
@@ -704,7 +707,7 @@ async def admin_review_clicked(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("usr_confirm_"))
 async def user_confirm_appointment(callback: types.CallbackQuery):
     rec_id = int(callback.data.replace("usr_confirm_", ""))
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("UPDATE appointments SET confirmed = 1 WHERE id = ?", (rec_id,))
     conn.commit()
@@ -796,7 +799,7 @@ async def background_scheduler():
             now_dt = datetime.now()
             today_str = now_dt.strftime("%d.%m")
 
-            conn = sqlite3.connect("barbershop.db")
+            conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
 
             # 1. Напоминания за 2 часа до визита
@@ -933,7 +936,7 @@ async def api_cancel_booking(request):
 
 async def api_get_portfolio(request):
     """Возвращает живую ленту работ мастеров из Instagram."""
-    conn = sqlite3.connect("barbershop.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT id, image_url, caption, tag, barber_name, instagram_url FROM instagram_works ORDER BY id DESC")
     rows = cur.fetchall()
@@ -972,7 +975,7 @@ async def api_post_review(request):
 
         # ЕСЛИ ОЦЕНКА МЕНЬШЕ 3 ЗВЕЗД ИЛИ ЭТО ЖАЛОБА — НЕ ПУБЛИКУЕМ НА СТЕНУ!
         if is_complaint or rating < 3:
-            conn = sqlite3.connect("barbershop.db")
+            conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO complaints (user_id, client_name, phone, barber_id, rating, comment)
