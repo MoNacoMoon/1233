@@ -623,11 +623,16 @@ async def do_block_slot_callback(callback: types.CallbackQuery):
 # ==============================================================================
 # 6. ПРИЕМ БРОНИРОВАНИЯ ИЗ MINI APP
 # ==============================================================================
-@dp.message(F.web_app_data)
-async def handle_webapp_data(message: types.Message):
-    data = json.loads(message.web_app_data.data)
-    user_id = data.get("user_id") or message.from_user.id
-    client_name = data.get("client_name") or message.from_user.full_name
+async def process_new_booking(data, from_user=None):
+    user_id = int(data.get("user_id") or 0)
+    if not user_id and from_user:
+        user_id = from_user.id
+
+    client_name = data.get("client_name")
+    if not client_name and from_user:
+        client_name = from_user.full_name
+    client_name = client_name or "Гость"
+
     phone = data.get("phone", "Не указан")
     barber = data.get("barber") or DEFAULT_MASTER_NAME
     service = data.get("service", "Стрижка")
@@ -638,7 +643,8 @@ async def handle_webapp_data(message: types.Message):
     total_price = int(data.get("total_price", 0)) or int("".join(filter(str.isdigit, price_str)) or 200)
 
     # Закрепляем имя и телефон в базе
-    save_or_update_client_profile(user_id, client_name, phone)
+    if user_id:
+        save_or_update_client_profile(user_id, client_name, phone)
 
     # Сохраняем в таблицу записей
     rec_id = save_appointment(
@@ -653,27 +659,31 @@ async def handle_webapp_data(message: types.Message):
         total_price=total_price
     )
 
-    # Подтверждение для клиента
-    extra_line = f"\n➕ <b>Доп. услуги:</b> {extra_services}" if extra_services else ""
-    client_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🗺️ Маршрут в Google Maps", url=GOOGLE_MAPS_URL)],
-        [InlineKeyboardButton(text="📱 Открыть билет в Mini App", web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp?tab=profile"))]
-    ])
-    await message.answer(
-        "🔥 <b>Запись успешно подтверждена!</b>\n\n"
-        f"💈 <b>Мастер:</b> {barber}\n"
-        f"✂️ <b>Услуга:</b> {service}{extra_line}\n"
-        f"💰 <b>Сумма к оплате:</b> <b>{total_price} руб</b>\n"
-        f"📅 <b>Время:</b> {date} в {time}\n"
-        f"👤 <b>Клиент:</b> {client_name}\n"
-        f"📞 <b>Телефон:</b> {phone}\n\n"
-        "📍 Ждём вас по адресу: ул. 25 Октября, 94!\n"
-        "<i>Напоминание о визите придет за 2 часа прямо сюда в Telegram.</i>",
-        parse_mode="HTML",
-        reply_markup=client_kb
-    )
+    # Подтверждение для клиента (если известен user_id)
+    if user_id and user_id > 0:
+        extra_line = f"\n➕ <b>Доп. услуги:</b> {extra_services}" if extra_services else ""
+        client_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🗺️ Маршрут в Google Maps", url=GOOGLE_MAPS_URL)],
+            [InlineKeyboardButton(text="📱 Открыть билет в Mini App", web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp?tab=profile"))]
+        ])
+        client_text = (
+            "🔥 <b>Запись успешно подтверждена!</b>\n\n"
+            f"💈 <b>Мастер:</b> {barber}\n"
+            f"✂️ <b>Услуга:</b> {service}{extra_line}\n"
+            f"💰 <b>Сумма к оплате:</b> <b>{total_price} руб</b>\n"
+            f"📅 <b>Время:</b> {date} в {time}\n"
+            f"👤 <b>Клиент:</b> {client_name}\n"
+            f"📞 <b>Телефон:</b> {phone}\n\n"
+            "📍 Ждём вас по адресу: ул. 25 Октября, 94!\n"
+            "<i>Напоминание о визите придет за 2 часа прямо сюда в Telegram.</i>"
+        )
+        try:
+            await bot.send_message(chat_id=user_id, text=client_text, parse_mode="HTML", reply_markup=client_kb)
+        except Exception as e:
+            logging.error(f"Error sending booking confirmation to client {user_id}: {e}")
 
     # Карточка администратору / в группу салона
+    username_str = f"@{from_user.username}" if (from_user and from_user.username) else "заказ из Mini App"
     staff_card = (
         f"⚡ <b>НОВАЯ ЗАПИСЬ #{rec_id} (DADDY BARBERSHOP)</b>\n\n"
         f"💈 <b>Мастер:</b> {barber}\n"
@@ -683,17 +693,34 @@ async def handle_webapp_data(message: types.Message):
         f"📅 <b>Время:</b> {date} в {time}\n"
         f"👤 <b>Клиент:</b> {client_name}\n"
         f"📞 <b>Телефон:</b> <code>{phone}</code>\n"
-        f"💬 <b>Телеграм:</b> @{message.from_user.username or 'нет юзернейма'}"
+        f"💬 <b>Телеграм:</b> {username_str}"
     )
     staff_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Отзыв взят на месте", callback_data=f"adm_revdone_{rec_id}")]
     ])
 
     target = BARBERSHOP_GROUP_ID if BARBERSHOP_GROUP_ID else STAFF_IDS[0]
-    await bot.send_message(chat_id=target, text=staff_card, parse_mode="HTML", reply_markup=staff_kb)
+    try:
+        await bot.send_message(chat_id=target, text=staff_card, parse_mode="HTML", reply_markup=staff_kb)
+    except Exception as e:
+        logging.error(f"Error sending staff notification: {e}")
+        if STAFF_IDS and target != STAFF_IDS[0]:
+            try:
+                await bot.send_message(chat_id=STAFF_IDS[0], text=staff_card, parse_mode="HTML", reply_markup=staff_kb)
+            except Exception:
+                pass
 
     # Запуск опроса через 1.5 часа
-    asyncio.create_task(schedule_review_poll(rec_id, message.from_user.id, client_name, delay_seconds=5400))
+    if user_id and user_id > 0:
+        asyncio.create_task(schedule_review_poll(rec_id, user_id, client_name, delay_seconds=5400))
+
+    return rec_id
+
+
+@dp.message(F.web_app_data)
+async def handle_webapp_data(message: types.Message):
+    data = json.loads(message.web_app_data.data)
+    await process_new_booking(data, from_user=message.from_user)
 
 
 @dp.callback_query(F.data.startswith("adm_revdone_"))
@@ -912,6 +939,16 @@ async def api_get_my_bookings(request):
         return web.json_response({"bookings": []})
 
 
+async def api_create_booking(request):
+    try:
+        data = await request.json()
+        rec_id = await process_new_booking(data)
+        return web.json_response({"status": "ok", "appointment_id": rec_id})
+    except Exception as e:
+        logging.error(f"Error in api_create_booking: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=400)
+
+
 async def api_cancel_booking(request):
     try:
         data = await request.json()
@@ -1111,6 +1148,7 @@ async def main():
     app.router.add_get("/api/slots", api_get_busy_slots)
     app.router.add_get("/api/user-profile", api_get_user_profile)
     app.router.add_get("/api/my-bookings", api_get_my_bookings)
+    app.router.add_post("/api/book", api_create_booking)
     app.router.add_post("/api/cancel-booking", api_cancel_booking)
     app.router.add_get("/api/portfolio", api_get_portfolio)
     app.router.add_get("/api/reviews", api_get_reviews)

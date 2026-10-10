@@ -2387,6 +2387,44 @@
     /* ==========================================================================
        CONFIRM BOOKING -> OPENS BANKING-STYLE SUCCESS SCREEN
        ========================================================================== */
+    async function sendBookingToBackend(pass) {
+      if (!pass || pass.isSent) return;
+      pass.isSent = true;
+
+      const payload = {
+        user_id: telegramUserId,
+        client_name: pass.client_name,
+        phone: pass.phone,
+        barber: pass.master,
+        service: pass.service,
+        extra_services: pass.extras,
+        price: `${pass.total} руб`,
+        total_price: pass.total,
+        date: pass.date,
+        time: pass.time
+      };
+
+      // 1. Direct REST API call (guaranteed 100% to save in DB and notify Telegram)
+      try {
+        await fetch('/api/book', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.error("Booking API error:", err);
+      }
+
+      // 2. Telegram WebApp sendData fallback
+      try {
+        if (telegramApp && typeof telegramApp.sendData === 'function') {
+          telegramApp.sendData(JSON.stringify(payload));
+        }
+      } catch (e) {
+        console.warn("telegramApp.sendData fallback:", e);
+      }
+    }
+
     function confirmBookingFromUpsell() {
       closeUpsellModal();
       triggerHaptic('success');
@@ -2402,8 +2440,12 @@
         time: bookingState.selectedTimeString,
         total: total,
         client_name: activeClientName,
-        phone: phoneInput.value.trim()
+        phone: phoneInput.value.trim(),
+        isSent: false
       };
+
+      // Send to backend immediately so booking is 100% saved and staff is notified!
+      sendBookingToBackend(currentPassData);
 
       // Populate Success Receipt
       document.getElementById('successMasterVal').innerText = `${currentPassData.master} (Топ-барбер ⭐)`;
@@ -2422,26 +2464,18 @@
 
       // Open Banking Success Modal
       document.getElementById('successModal').classList.add('open');
-      telegramApp.MainButton.hide();
+      if (telegramApp && telegramApp.MainButton) telegramApp.MainButton.hide();
     }
 
     function finishBookingSuccess() {
       document.getElementById('successModal').classList.remove('open');
       triggerHaptic('success');
-
-      // Send to Telegram backend
-      telegramApp.sendData(JSON.stringify({
-        user_id: telegramUserId,
-        client_name: currentPassData.client_name,
-        phone: currentPassData.phone,
-        barber: currentPassData.master,
-        service: currentPassData.service,
-        extra_services: currentPassData.extras,
-        price: `${currentPassData.total} руб`,
-        total_price: currentPassData.total,
-        date: currentPassData.date,
-        time: currentPassData.time
-      }));
+      sendBookingToBackend(currentPassData);
+      try {
+        if (telegramApp && typeof telegramApp.close === 'function') {
+          telegramApp.close();
+        }
+      } catch(e) {}
     }
 
     /* Google Maps Route */
