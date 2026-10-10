@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+ngrok.exe
+ngrok
+.venv/
+venv/
+ENV/

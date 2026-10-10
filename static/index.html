@@ -1,0 +1,3008 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Daddy Barbershop • Tiraspol</title>
+
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       1. LUXURY BARBERSHOP & OBSIDIAN GOLD DESIGN SYSTEM
+       ========================================================================== */
+    :root {
+      --bg-canvas: #090b0e;
+      --bg-card: #11151e;
+      --surface-1: #151a26;
+      --surface-2: #1c2233;
+      --surface-3: #242c40;
+      --surface-glass: rgba(17, 21, 30, 0.92);
+
+      /* Accents: Amber Gold, Electric Cyan & Instagram Gradient */
+      --gold-primary: #e5a93c;
+      --gold-deep: #b47818;
+      --gold-glow: rgba(229, 169, 60, 0.35);
+      --gold-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      --gold-subtle: rgba(229, 169, 60, 0.12);
+
+      --cyan-primary: #38bdf8;
+      --cyan-glow: rgba(56, 189, 248, 0.28);
+      --cyan-gradient: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+
+      --insta-gradient: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+
+      /* Neutrals */
+      --steel-bright: #f8fafc;
+      --steel-main: #e2e8f0;
+      --steel-muted: #94a3b8;
+      --steel-dim: #64748b;
+      --steel-dark: #334155;
+
+      /* Borders */
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-medium: rgba(255, 255, 255, 0.14);
+      --border-gold: rgba(229, 169, 60, 0.4);
+
+      /* Typography */
+      --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      /* Radii */
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 9999px;
+
+      /* Transitions & Shadows */
+      --ease-smooth: 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      --shadow-ambient: 0 12px 32px -4px rgba(0, 0, 0, 0.65);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
+
+    body {
+      background-color: var(--bg-canvas);
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(229, 169, 60, 0.08) 0%, transparent 60%),
+        radial-gradient(circle at 100% 30%, rgba(56, 189, 248, 0.04) 0%, transparent 50%),
+        radial-gradient(circle at 0% 100%, rgba(20, 26, 38, 0.7) 0%, transparent 60%);
+      background-attachment: fixed;
+      color: var(--steel-main);
+      font-family: var(--font-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding-bottom: 92px;
+    }
+
+    /* ==========================================================================
+       2. HEADER & OFFICIAL BRANDING
+       ========================================================================== */
+    .app-header {
+      position: relative;
+      text-align: center;
+      padding: 22px 16px 14px;
+      overflow: hidden;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(229, 169, 60, 0.12);
+      border: 1px solid var(--border-gold);
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      color: var(--gold-primary);
+      text-transform: uppercase;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+      margin-bottom: 8px;
+    }
+
+    .badge-status .dot-live {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--gold-primary);
+      box-shadow: 0 0 10px var(--gold-primary);
+      animation: pulseGlow 1.8s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.25); }
+    }
+
+    .main-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #ffffff 40%, var(--steel-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.1;
+      filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.8));
+    }
+
+    .sub-title {
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--steel-dim);
+      margin-top: 4px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 20px 0 10px;
+      padding: 0 2px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--steel-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::before {
+      content: "";
+      width: 3px;
+      height: 13px;
+      border-radius: 2px;
+      background: var(--gold-gradient);
+      box-shadow: 0 0 8px var(--gold-primary);
+    }
+
+    .section-meta {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold-primary);
+      letter-spacing: 0.5px;
+    }
+
+    /* ==========================================================================
+       3. NAVIGATION BAR (BOTTOM TABS)
+       ========================================================================== */
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: var(--surface-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border-medium);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 6px;
+      z-index: 999;
+    }
+
+    .tab-button {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--steel-dim);
+      font-family: var(--font-primary);
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 6px 2px;
+      border-radius: var(--radius-md);
+      transition: var(--ease-smooth);
+      position: relative;
+    }
+
+    .tab-button .tab-icon {
+      font-size: 20px;
+      margin-bottom: 2px;
+      transition: transform var(--ease-spring);
+    }
+
+    .tab-button.active {
+      color: var(--gold-primary);
+    }
+
+    .tab-button.active .tab-icon {
+      transform: translateY(-2px) scale(1.15);
+    }
+
+    .tab-button.active::after {
+      content: "";
+      position: absolute;
+      bottom: 4px;
+      width: 16px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--gold-primary);
+      box-shadow: 0 0 10px var(--gold-primary);
+    }
+
+    /* ==========================================================================
+       4. SCREEN ARCHITECTURE (VIEWS)
+       ========================================================================== */
+    .screen-view {
+      display: none;
+      padding: 0 14px;
+    }
+
+    .screen-view.active {
+      display: block;
+      animation: screenSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes screenSlideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================================================
+       5. MASTER SPOTLIGHT (YAKOV HERO CARD & INSTAGRAM BADGES)
+       ========================================================================== */
+    .master-hero-card {
+      position: relative;
+      background: linear-gradient(145deg, #182030 0%, var(--surface-1) 100%);
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px var(--gold-subtle);
+    }
+
+    .master-hero-avatar-wrap {
+      position: relative;
+      width: 74px;
+      height: 74px;
+      flex-shrink: 0;
+    }
+
+    .master-hero-avatar {
+      width: 100%;
+      height: 100%;
+      border-radius: var(--radius-pill);
+      object-fit: cover;
+      border: 2px solid var(--gold-primary);
+      box-shadow: 0 0 18px var(--gold-glow);
+    }
+
+    .master-hero-badge {
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      background: var(--gold-gradient);
+      color: #080a0f;
+      font-size: 8px;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+      letter-spacing: 0.5px;
+    }
+
+    .master-hero-info {
+      flex: 1;
+    }
+
+    .master-hero-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--steel-bright);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .master-hero-role {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-top: 2px;
+    }
+
+    .master-hero-desc {
+      font-size: 11.5px;
+      color: var(--steel-muted);
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+
+    /* Stylized Instagram Links */
+    .master-hero-links {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .insta-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(225, 48, 108, 0.12);
+      border: 1px solid rgba(225, 48, 108, 0.35);
+      color: #fff;
+      text-decoration: none;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: var(--radius-pill);
+      transition: all var(--ease-smooth);
+    }
+
+    .insta-pill-btn:hover, .insta-pill-btn:active {
+      background: var(--insta-gradient);
+      border-color: transparent;
+      box-shadow: 0 3px 12px rgba(220, 39, 67, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .insta-svg-icon {
+      width: 13px;
+      height: 13px;
+      fill: currentColor;
+    }
+
+    /* Switch Master Mini Bar with Altegio Indicators */
+    .master-switch-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .master-switch-row::-webkit-scrollbar { display: none; }
+
+    .master-mini-chip {
+      position: relative;
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 7px 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--steel-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: var(--ease-smooth);
+    }
+
+    .master-mini-chip.active {
+      background: var(--surface-3);
+      border-color: var(--gold-primary);
+      color: var(--gold-primary);
+      box-shadow: 0 0 12px var(--gold-subtle);
+    }
+
+    .master-mini-chip .sub-tag {
+      font-size: 9px;
+      padding: 1px 6px;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--steel-dim);
+      font-weight: 800;
+    }
+
+    .master-mini-chip.active .sub-tag {
+      background: var(--gold-subtle);
+      color: var(--gold-primary);
+    }
+
+    .master-mini-chip.altegio-chip .sub-tag {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan-primary);
+    }
+
+    /* Tooltip hint on hover */
+    .master-mini-chip[data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: -32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #06080c;
+      border: 1px solid var(--cyan-primary);
+      color: var(--steel-bright);
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+
+    /* ==========================================================================
+       6. SERVICES CATALOG
+       ========================================================================== */
+    .services-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .service-row {
+      position: relative;
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 13px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all var(--ease-smooth);
+    }
+
+    .service-row:active {
+      transform: scale(0.985);
+    }
+
+    .service-row.active {
+      background: linear-gradient(90deg, #1d2538 0%, var(--surface-1) 100%);
+      border-color: var(--gold-primary);
+      box-shadow: 0 2px 14px var(--gold-subtle);
+    }
+
+    .service-info {
+      max-width: 72%;
+    }
+
+    .service-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--steel-bright);
+    }
+
+    .service-desc {
+      font-size: 11px;
+      color: var(--steel-dim);
+      margin-top: 2px;
+    }
+
+    .service-price-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .service-cost {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--gold-primary);
+    }
+
+    .service-curr {
+      font-size: 9px;
+      color: var(--steel-dim);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* ==========================================================================
+       7. CALENDAR & TIME SLOTS
+       ========================================================================== */
+    .calendar-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .calendar-strip::-webkit-scrollbar { display: none; }
+
+    .date-pill {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      min-width: 58px;
+      height: 66px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: all var(--ease-smooth);
+    }
+
+    .date-pill:active { transform: scale(0.95); }
+
+    .date-pill.active {
+      border-color: var(--gold-primary);
+      background: var(--gold-gradient);
+      box-shadow: 0 4px 16px rgba(229, 169, 60, 0.4);
+    }
+
+    .date-pill .day-w {
+      font-size: 9.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--steel-dim);
+    }
+
+    .date-pill .day-n {
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 800;
+      margin-top: 2px;
+      color: var(--steel-bright);
+    }
+
+    .date-pill.active .day-w,
+    .date-pill.active .day-n {
+      color: #080a0f;
+    }
+
+    .slots-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .slot-chip {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 0;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--steel-bright);
+      cursor: pointer;
+      transition: all var(--ease-smooth);
+    }
+
+    .slot-chip:active { transform: scale(0.96); }
+
+    .slot-chip.active {
+      border-color: var(--gold-primary);
+      background: #242c40;
+      color: var(--gold-primary);
+      box-shadow: 0 0 12px var(--gold-subtle);
+    }
+
+    .slot-chip.disabled {
+      opacity: 0.22;
+      text-decoration: line-through;
+      pointer-events: none;
+      background: #090c12;
+      border-color: transparent;
+    }
+
+    /* ==========================================================================
+       8. CLIENT CONTACTS
+       ========================================================================== */
+    .booking-contact-section {
+      background: var(--surface-1);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-lg);
+      padding: 18px 16px;
+      margin-top: 20px;
+      box-shadow: var(--shadow-ambient);
+    }
+
+    .contact-field-group {
+      margin-bottom: 12px;
+    }
+    .contact-field-group:last-child { margin-bottom: 0; }
+
+    .contact-label {
+      display: block;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--steel-muted);
+      margin-bottom: 6px;
+    }
+
+    .contact-input-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: border-color var(--ease-smooth);
+    }
+
+    .contact-input-box:focus-within {
+      border-color: var(--gold-primary);
+      box-shadow: 0 0 12px var(--gold-glow);
+    }
+
+    .contact-input-box .prefix-icon {
+      font-size: 15px;
+      color: var(--gold-primary);
+    }
+
+    .contact-input-box input {
+      background: transparent;
+      border: none;
+      color: var(--steel-bright);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      width: 100%;
+    }
+
+    .contact-input-box input.phone-mode {
+      font-family: var(--font-mono);
+      letter-spacing: 0.8px;
+    }
+
+    .contact-input-box input::placeholder {
+      color: var(--steel-dim);
+      font-weight: 400;
+    }
+
+    /* Action Booking Trigger Button (Inline) */
+    .primary-flow-btn {
+      width: 100%;
+      background: var(--gold-gradient);
+      color: #080a0f;
+      border: none;
+      font-family: var(--font-primary);
+      font-size: 14px;
+      font-weight: 800;
+      padding: 15px 0;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      margin-top: 20px;
+      box-shadow: 0 6px 20px rgba(229, 169, 60, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all var(--ease-smooth);
+    }
+
+    .primary-flow-btn:active {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+
+    /* ==========================================================================
+       9. VIEW 2: SEGMENTED WORKS (INSTAGRAM) & SEPARATE REVIEWS
+       ========================================================================== */
+    .view-segment-bar {
+      display: flex;
+      background: var(--surface-1);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+
+    .segment-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--steel-muted);
+      font-family: var(--font-primary);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 9px 0;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: var(--ease-smooth);
+    }
+
+    .segment-btn.active {
+      background: var(--surface-3);
+      color: var(--gold-primary);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Luxury VIP Instagram Banner */
+    .insta-vip-banner {
+      position: relative;
+      background: linear-gradient(135deg, rgba(30, 24, 40, 0.9) 0%, rgba(18, 22, 33, 0.95) 100%);
+      border: 1px solid rgba(225, 48, 108, 0.35);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(225, 48, 108, 0.15);
+      overflow: hidden;
+    }
+
+    .insta-vip-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .insta-vip-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--insta-gradient);
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px rgba(225, 48, 108, 0.4);
+    }
+
+    .insta-vip-avatar-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: #141722;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .insta-vip-handle {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .insta-vip-desc {
+      font-size: 10.5px;
+      color: var(--steel-muted);
+      margin-top: 1px;
+    }
+
+    .insta-vip-action {
+      background: var(--insta-gradient);
+      color: #fff;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 7px 14px;
+      border-radius: var(--radius-pill);
+      box-shadow: 0 3px 10px rgba(220, 39, 67, 0.4);
+      white-space: nowrap;
+    }
+
+    /* Works Grid */
+    .works-grid-2col {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .portfolio-card {
+      position: relative;
+      height: 190px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      transition: transform var(--ease-smooth);
+    }
+
+    .portfolio-card:active { transform: scale(0.96); }
+
+    .portfolio-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .portfolio-card-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 24px 10px 8px;
+      background: linear-gradient(180deg, transparent 0%, rgba(9, 11, 14, 0.95) 100%);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .portfolio-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--steel-bright);
+    }
+
+    .portfolio-card-tag {
+      font-size: 9.5px;
+      color: var(--gold-primary);
+      font-weight: 600;
+    }
+
+    .insta-icon-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(6px);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    /* Reviews Section Elements */
+    .reviews-master-select-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .review-master-btn {
+      flex: 1;
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      color: var(--steel-muted);
+      border-radius: var(--radius-sm);
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .review-master-btn.active {
+      border-color: var(--gold-primary);
+      color: var(--gold-primary);
+      background: var(--surface-3);
+    }
+
+    .review-builder-card {
+      background: linear-gradient(180deg, #182030 0%, var(--surface-1) 100%);
+      border: 1px dashed var(--border-gold);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-top: 14px;
+    }
+
+    .interactive-rating-stars {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      font-size: 28px;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+
+    .interactive-rating-stars span {
+      filter: grayscale(1);
+      opacity: 0.35;
+      transition: all var(--ease-smooth);
+    }
+
+    .interactive-rating-stars span.lit {
+      filter: grayscale(0);
+      opacity: 1;
+      transform: scale(1.15);
+      color: var(--gold-primary);
+      text-shadow: 0 0 12px var(--gold-primary);
+    }
+
+    .review-preset-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin: 10px 0 12px;
+    }
+
+    .preset-tag {
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--steel-muted);
+      cursor: pointer;
+      transition: all var(--ease-smooth);
+    }
+
+    .preset-tag.active {
+      border-color: var(--gold-primary);
+      color: var(--gold-primary);
+      background: #242c40;
+    }
+
+    .review-input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      color: var(--steel-bright);
+      font-family: inherit;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .submit-review-btn {
+      width: 100%;
+      background: var(--gold-gradient);
+      color: #080a0f;
+      border: none;
+      font-family: var(--font-primary);
+      font-size: 13px;
+      font-weight: 800;
+      padding: 12px 0;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(229, 169, 60, 0.3);
+    }
+
+    .wall-of-reviews {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .review-record-card {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+
+    .review-record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .review-author-name {
+      font-weight: 700;
+      color: var(--steel-bright);
+    }
+
+    .review-star-visual {
+      color: var(--gold-primary);
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+
+    .review-badge-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--gold-primary);
+      background: var(--gold-subtle);
+      border: 1px solid var(--border-gold);
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+
+    .review-body-text {
+      font-size: 12.5px;
+      color: var(--steel-main);
+      line-height: 1.45;
+    }
+
+    /* ==========================================================================
+       10. VIEW 3: MY VISIT & LOYALTY CARD
+       ========================================================================== */
+    .loyalty-card {
+      background: linear-gradient(135deg, #1b2333 0%, #11151f 100%);
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      padding: 18px 16px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .loyalty-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .loyalty-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--gold-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .loyalty-badge {
+      font-size: 10px;
+      font-weight: 800;
+      background: var(--gold-gradient);
+      color: #080a0f;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+    }
+
+    .loyalty-stamps-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin: 14px 0;
+    }
+
+    .stamp-slot {
+      aspect-ratio: 1;
+      border-radius: var(--radius-md);
+      background: var(--surface-2);
+      border: 1px dashed var(--border-medium);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .stamp-slot.stamped {
+      background: var(--gold-gradient);
+      border: none;
+      box-shadow: 0 0 10px var(--gold-glow);
+      color: #080a0f;
+    }
+
+    .loyalty-reward-note {
+      font-size: 11px;
+      color: var(--steel-muted);
+      text-align: center;
+    }
+
+    /* ==========================================================================
+       11. MODALS & POP-UPS (ALTEGIO, UPSELL & BANKING SUCCESS)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(4, 6, 9, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      animation: fadeIn 0.22s ease;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .ticket-pass {
+      position: relative;
+      width: 100%;
+      max-width: 360px;
+      background: #141a27;
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      padding: 24px 20px 20px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 24px var(--gold-subtle);
+      animation: scaleUp 0.28s var(--ease-spring);
+    }
+
+    @keyframes scaleUp {
+      from { transform: scale(0.9) translateY(20px); opacity: 0; }
+      to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    /* Universal Modal Close Cross Button */
+    .modal-close-btn {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      border: 1px solid var(--border-medium);
+      color: var(--steel-muted);
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--ease-smooth);
+      z-index: 100;
+    }
+
+    .modal-close-btn:hover, .modal-close-btn:active {
+      color: #fff;
+      border-color: var(--gold-primary);
+      background: var(--surface-3);
+    }
+
+    .ticket-actions-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .ticket-btn {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      padding: 12px 0;
+      font-family: var(--font-primary);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      transition: var(--ease-smooth);
+      text-decoration: none;
+    }
+
+    .ticket-btn.primary {
+      background: var(--gold-gradient);
+      color: #080a0f;
+    }
+
+    .ticket-btn.cyan {
+      background: var(--cyan-gradient);
+      color: #080a0f;
+    }
+
+    .ticket-btn.green {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      font-weight: 900;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45);
+      border: 1px solid rgba(52, 211, 153, 0.6);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    .ticket-btn.green:hover, .ticket-btn.green:active {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      box-shadow: 0 6px 24px rgba(16, 185, 129, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .ticket-btn.secondary {
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      color: var(--steel-bright);
+    }
+
+    .ticket-btn.danger {
+      background: transparent;
+      color: #f43f5e;
+      font-weight: 600;
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    /* Altegio Badge */
+    .altegio-badge {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--cyan-primary);
+      color: var(--cyan-primary);
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-radius: var(--radius-pill);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ==========================================================================
+       12. POPUP UPSELL MODAL STYLES (ВСПЛЫВАЮЩИЕ ДОПРОДАЖИ ПЕРЕД ЗАПИСЬЮ)
+       ========================================================================== */
+    .upsell-modal-head {
+      text-align: center;
+      margin-bottom: 14px;
+      padding-top: 6px;
+    }
+
+    .upsell-modal-badge {
+      display: inline-block;
+      font-size: 9.5px;
+      font-weight: 800;
+      color: var(--gold-primary);
+      background: var(--gold-subtle);
+      border: 1px solid var(--border-gold);
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      letter-spacing: 1px;
+    }
+
+    .upsell-modal-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .upsell-modal-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 11px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all var(--ease-smooth);
+    }
+
+    .upsell-modal-card.active {
+      background: #242c40;
+      border-color: var(--gold-primary);
+      box-shadow: 0 0 12px var(--gold-subtle);
+    }
+
+    .upsell-card-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .upsell-card-icon {
+      font-size: 20px;
+    }
+
+    .upsell-card-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--steel-bright);
+    }
+
+    .upsell-modal-card.active .upsell-card-title {
+      color: var(--gold-primary);
+    }
+
+    .upsell-card-sub {
+      font-size: 10.5px;
+      color: var(--steel-dim);
+    }
+
+    .upsell-card-price {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--gold-primary);
+    }
+
+    .upsell-total-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0b0e15;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+
+    .upsell-total-val {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--gold-primary);
+    }
+
+    /* ==========================================================================
+       13. BANKING-STYLE SUCCESS SCREEN (АНИМАЦИЯ НОЖНИЦ & КВИТАНЦИЯ)
+       ========================================================================== */
+    .scissors-anim-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 6px 0 16px;
+    }
+
+    .scissors-circle {
+      position: relative;
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(229, 169, 60, 0.28) 0%, rgba(17, 21, 30, 0.95) 70%);
+      border: 2px solid var(--gold-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 28px var(--gold-glow);
+      animation: pulseSuccess 2s infinite ease-in-out;
+    }
+
+    .scissors-icon {
+      font-size: 40px;
+      display: inline-block;
+      animation: snipCut 1.3s ease-in-out infinite;
+    }
+
+    @keyframes snipCut {
+      0% { transform: rotate(0deg) scale(1); }
+      25% { transform: rotate(-24deg) scale(1.1); }
+      50% { transform: rotate(0deg) scale(1); }
+      75% { transform: rotate(-24deg) scale(1.1); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+
+    @keyframes pulseSuccess {
+      0%, 100% { box-shadow: 0 0 20px var(--gold-glow); transform: scale(1); }
+      50% { box-shadow: 0 0 34px var(--gold-primary); transform: scale(1.03); }
+    }
+
+    .check-badge {
+      position: absolute;
+      bottom: -3px;
+      right: -3px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #10b981;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #141a27;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.7);
+    }
+
+    .success-receipt-header {
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    .success-title {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+
+    .success-subtitle {
+      font-size: 11.5px;
+      color: var(--steel-muted);
+      margin-top: 2px;
+    }
+
+    .reminder-callout-box {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .reminder-callout-box .reminder-icon {
+      font-size: 20px;
+    }
+
+    .reminder-callout-box .reminder-text {
+      font-size: 11px;
+      color: var(--steel-main);
+      line-height: 1.35;
+    }
+
+    .receipt-box {
+      background: #0d111a;
+      border: 1px dashed var(--border-gold);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 12.5px;
+    }
+
+    .receipt-row:last-child {
+      margin-bottom: 0;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .receipt-label {
+      color: var(--steel-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .receipt-val {
+      font-weight: 800;
+      color: var(--steel-bright);
+      text-align: right;
+    }
+
+    .receipt-val.highlight-date {
+      color: var(--cyan-primary);
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+    }
+
+    .receipt-val.price-total {
+      color: var(--gold-primary);
+      font-family: var(--font-mono);
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Masthead Branding -->
+  <header class="app-header">
+    <div class="badge-status">
+      <span class="dot-live"></span>
+      <span>Официальная онлайн-запись • Daddy Barbershop</span>
+    </div>
+    <h1 class="main-title">DADDY</h1>
+    <div class="sub-title">Тирасполь • ул. 25 Октября, 94</div>
+  </header>
+
+  <!-- ==========================================================================
+       VIEW 1: BOOKING FLOW (ЗАПИСЬ)
+       ========================================================================== -->
+  <main class="screen-view active" id="viewBooking">
+    
+    <!-- 1. Master Spotlight (Yakov) -->
+    <section class="master-hero-card" id="pilotMasterCard">
+      <div class="master-hero-avatar-wrap">
+        <img src="/static/img/yakov.jpg" class="master-hero-avatar" id="activeMasterImg" alt="Yakov">
+        <span class="master-hero-badge">TOP</span>
+      </div>
+      <div class="master-hero-info">
+        <div class="master-hero-title">
+          <span id="activeMasterName">Yakov</span>
+          <span style="font-size: 13px; color: var(--gold-primary);">★ 5.0</span>
+        </div>
+        <div class="master-hero-role" id="activeMasterRole">Топ-барбер салона ⭐</div>
+        <div class="master-hero-desc">Эксперт по низким Fade, моделированию бороды и мужскому стилю. Опыт 7 лет.</div>
+        
+        <!-- Stylish Instagram Badges -->
+        <div class="master-hero-links">
+          <a href="https://www.instagram.com/_yakov_barber_/" target="_blank" class="insta-pill-btn">
+            <svg class="insta-svg-icon" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            <span>@_yakov_barber_</span>
+          </a>
+          <a href="https://www.instagram.com/daddy.barbershop.md/" target="_blank" class="insta-pill-btn">
+            <svg class="insta-svg-icon" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            <span>@daddy.barbershop.md</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Switch Master Mini Bar with Altegio Indicators -->
+    <div class="section-head" style="margin-top: 10px;">
+      <div class="section-title">Мастер визита</div>
+      <div class="section-meta" id="displayActiveGrade">Топ-барбер ⭐</div>
+    </div>
+    <div class="master-switch-row">
+      <!-- Yakov: Active in TMA -->
+      <div class="master-mini-chip active" onclick="selectMaster('yakov', 'Yakov', 'top', '/static/img/yakov.jpg')">
+        <span>⭐ Yakov</span>
+        <span class="sub-tag">Telegram ⚡</span>
+      </div>
+      <!-- Ruvim: Altegio bridge -->
+      <div class="master-mini-chip altegio-chip" data-tooltip="Мастер пока в Altegio (скоро здесь)" onclick="handleOtherMasterClick('Рувим', '/static/img/ruvim.jpg')">
+        <span>Рувим</span>
+        <span class="sub-tag">Altegio ↗</span>
+      </div>
+      <!-- Liza: Altegio bridge -->
+      <div class="master-mini-chip altegio-chip" data-tooltip="Мастер пока в Altegio (скоро здесь)" onclick="handleOtherMasterClick('Лиза', '/static/img/liza.jpg')">
+        <span>Лиза</span>
+        <span class="sub-tag">Altegio ↗</span>
+      </div>
+    </div>
+
+    <!-- 2. Services Menu -->
+    <div class="section-head">
+      <div class="section-title">1. Основная услуга</div>
+      <div class="section-meta" id="displayActiveServiceCost">200 руб</div>
+    </div>
+    <section class="services-stack" id="bookingServicesList"></section>
+
+    <!-- 3. Calendar Selection -->
+    <div class="section-head">
+      <div class="section-title">2. Дата записи</div>
+      <div class="section-meta" id="displayActiveMonth">Октябрь</div>
+    </div>
+    <section class="calendar-strip" id="bookingCalendarStrip"></section>
+
+    <!-- 4. Time Selection Grid -->
+    <div class="section-head">
+      <div class="section-title">3. Время записи</div>
+      <div class="section-meta">Свободные слоты</div>
+    </div>
+    <section class="slots-grid" id="bookingSlotsGrid">
+      <div class="slot-chip" data-time="10:00">10:00</div>
+      <div class="slot-chip" data-time="11:15">11:15</div>
+      <div class="slot-chip" data-time="12:30">12:30</div>
+      <div class="slot-chip" data-time="13:45">13:45</div>
+      <div class="slot-chip" data-time="15:00">15:00</div>
+      <div class="slot-chip" data-time="16:15">16:15</div>
+      <div class="slot-chip" data-time="17:30">17:30</div>
+      <div class="slot-chip" data-time="18:45">18:45</div>
+      <div class="slot-chip" data-time="20:00">20:00</div>
+    </section>
+
+    <!-- 5. Client Contacts Section -->
+    <section class="booking-contact-section">
+      <div class="section-head" style="margin-top: 0; margin-bottom: 12px;">
+        <div class="section-title">4. Контактные данные</div>
+        <span class="saved-user-badge" style="font-size:10px;color:var(--gold-primary);">Профиль клиента</span>
+      </div>
+
+      <div class="contact-field-group">
+        <label class="contact-label" for="clientFullName">Ваше Имя и Фамилия</label>
+        <div class="contact-input-box">
+          <span class="prefix-icon">👤</span>
+          <input type="text" id="clientFullName" placeholder="Введите имя" autocomplete="name">
+        </div>
+      </div>
+
+      <div class="contact-field-group">
+        <label class="contact-label" for="clientPhoneNumber">Телефон (ПМР / Молдова)</label>
+        <div class="contact-input-box">
+          <span class="prefix-icon">📞</span>
+          <input type="tel" id="clientPhoneNumber" class="phone-mode" placeholder="+373 (___) __-___" inputmode="numeric">
+        </div>
+      </div>
+
+      <!-- Button that initiates the Pop-up Upsell Modal -->
+      <button class="primary-flow-btn" onclick="startBookingFlow()">
+        <span>ПРОДОЛЖИТЬ ЗАПИСЬ →</span>
+      </button>
+    </section>
+
+  </main>
+
+  <!-- ==========================================================================
+  <!-- ==========================================================================
+       VIEW 2: INSTAGRAM WORKS LOOKBOOK (ЧИСТОЕ ПОРТФОЛИО СТРИЖЕК)
+       ========================================================================== -->
+  <main class="screen-view" id="viewWorks">
+    <!-- Luxury Instagram Banner -->
+    <div class="insta-vip-banner">
+      <div class="insta-vip-content">
+        <div class="insta-vip-avatar">
+          <div class="insta-vip-avatar-inner">
+            <svg style="width: 20px; height: 20px; fill: #fff;" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </div>
+        </div>
+        <div>
+          <div class="insta-vip-handle">@daddy.barbershop.md</div>
+          <div class="insta-vip-desc">Свежие стрижки из Instagram • Live Feed</div>
+        </div>
+      </div>
+      <a href="https://www.instagram.com/daddy.barbershop.md/" target="_blank" class="insta-vip-action">
+        Открыть ↗
+      </a>
+    </div>
+
+    <div class="section-head">
+      <div class="section-title">Свежие работы мастеров</div>
+      <div class="section-meta" id="portfolioCountMeta">6 работ</div>
+    </div>
+
+    <div class="works-grid-2col" id="instagramPortfolioGrid"></div>
+  </main>
+
+  <!-- ==========================================================================
+       VIEW 3: CLIENT REVIEWS & RATINGS (ОТДЕЛЬНЫЙ РАЗДЕЛ СОЦИАЛЬНЫХ ДОКАЗАТЕЛЬСТВ)
+       ========================================================================== -->
+  <main class="screen-view" id="viewReviews">
+    <div class="section-head" style="margin-top: 4px;">
+      <div class="section-title">Отзывы о мастерах салона</div>
+      <div class="section-meta" style="color: var(--gold-primary); font-weight: 800;">4.9 ★</div>
+    </div>
+    
+    <!-- Master Switcher for Reviews -->
+    <div class="master-switch-row" style="margin-bottom: 10px;">
+      <div class="master-mini-chip active" id="revMasterChip_yakov" onclick="selectReviewTargetMaster('yakov', 'Yakov')">
+        <img src="/static/img/yakov.jpg" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--gold-primary);" alt="Yakov">
+        <span>Yakov</span>
+        <span class="sub-tag">★ 5.0</span>
+      </div>
+      <div class="master-mini-chip" id="revMasterChip_ruvim" onclick="selectReviewTargetMaster('ruvim', 'Рувим')">
+        <img src="/static/img/ruvim.jpg" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.2);" alt="Рувим">
+        <span>Рувим</span>
+        <span class="sub-tag">★ 4.9</span>
+      </div>
+      <div class="master-mini-chip" id="revMasterChip_liza" onclick="selectReviewTargetMaster('liza', 'Лиза')">
+        <img src="/static/img/liza.jpg" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.2);" alt="Лиза">
+        <span>Лиза</span>
+        <span class="sub-tag">★ 4.9</span>
+      </div>
+    </div>
+
+    <!-- Active Master Spotlight Card in Reviews -->
+    <section class="master-hero-card" id="revMasterHeroCard" style="margin-bottom: 14px;">
+      <div class="master-hero-avatar-wrap">
+        <img src="/static/img/yakov.jpg" class="master-hero-avatar" id="revActiveMasterImg" alt="Yakov">
+        <span class="master-hero-badge" id="revActiveMasterBadge">TOP</span>
+      </div>
+      <div class="master-hero-info">
+        <div class="master-hero-title">
+          <span id="revActiveMasterName">Yakov</span>
+          <span style="font-size: 13px; color: var(--gold-primary);" id="revActiveMasterRating">★ 5.0</span>
+        </div>
+        <div class="master-hero-role" id="revActiveMasterRole">Топ-барбер салона ⭐</div>
+        <div class="master-hero-desc" id="revActiveMasterDesc">Эксперт по низким Fade, моделированию бороды и мужскому стилю. Опыт 7 лет.</div>
+        
+        <div class="master-hero-links">
+          <a href="https://www.instagram.com/_yakov_barber_/" target="_blank" class="insta-pill-btn" id="revActiveMasterInsta">
+            <svg class="insta-svg-icon" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            <span id="revActiveMasterInstaHandle">@_yakov_barber_</span>
+          </a>
+          <a href="https://www.instagram.com/daddy.barbershop.md/" target="_blank" class="insta-pill-btn">
+            <svg class="insta-svg-icon" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            <span>@daddy.barbershop.md</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Review Builder -->
+    <div class="review-builder-card">
+      <div style="font-size: 12px; font-weight: 800; color: var(--gold-primary); text-transform: uppercase; text-align: center;" id="reviewBuilderTitle">Оценить работу мастера Yakov</div>
+      
+      <div class="interactive-rating-stars" id="starRatingSelector">
+        <span data-score="1" class="lit">★</span>
+        <span data-score="2" class="lit">★</span>
+        <span data-score="3" class="lit">★</span>
+        <span data-score="4" class="lit">★</span>
+        <span data-score="5" class="lit">★</span>
+      </div>
+
+      <!-- Empathetic notice for < 3 stars -->
+      <div id="complaintNoticeBox" style="display: none; background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.4); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 11.5px; color: #ff9ca8; line-height: 1.45; text-align: left;">
+        🛡️ <b>Нам искренне жаль!</b> Оценки 1–2 звезды отправляются <b>лично управляющему</b> конфиденциально. Мы свяжемся с вами и исправим ситуацию.
+      </div>
+
+      <div class="review-preset-tags" id="reviewPresetTags">
+        <div class="preset-tag active" data-tag="Стрижка" data-text="Идеальная стрижка! Мастер точно подобрал форму и переход.">✂️ Стрижка</div>
+        <div class="preset-tag" data-tag="Борода" data-text="Четкое моделирование бороды опасной бритвой. Всё на высшем уровне!">🧔 Борода</div>
+        <div class="preset-tag" data-tag="Сервис" data-text="Топовый сервис, кофе и атмосфера в Daddy Barbershop!">☕ Сервис</div>
+        <div class="preset-tag" data-tag="Скорость" data-text="Быстро, четко и без задержек. Пунктуальность 10/10!">⚡ Скорость</div>
+      </div>
+
+      <input type="text" class="review-input" id="reviewAuthorInput" placeholder="Ваше имя для отзыва">
+      <textarea class="review-input" id="customReviewText" style="height: 64px; resize: none;" placeholder="Напишите пару слов..."></textarea>
+      
+      <button class="submit-review-btn" onclick="handleReviewSubmission()">
+        <span id="submitReviewBtnText">Опубликовать отзыв</span>
+      </button>
+    </div>
+
+    <!-- Wall of Reviews -->
+    <div class="section-head" style="margin-top: 20px;">
+      <div class="section-title" id="reviewsWallTitle">Отзывы о мастере Yakov</div>
+      <div class="section-meta" id="heroReviewCounter">5 отзывов</div>
+    </div>
+    <div class="wall-of-reviews" id="heroReviewsWallContainer"></div>
+  </main>
+
+  <!-- ==========================================================================
+       VIEW 4: MY VISIT (ВАШ АКТИВНЫЙ ВИЗИТ)
+       ========================================================================== -->
+  <main class="screen-view" id="viewMyVisit">
+    <div class="section-head" style="margin-top: 6px;">
+      <div class="section-title">Ваша активная бронь</div>
+      <div class="section-meta" id="myBookingStatusMeta">Запись активна</div>
+    </div>
+
+    <div id="myActiveBookingsList">
+      <div style="text-align: center; color: var(--steel-dim); padding: 30px 10px; font-size: 13px;">
+        У вас пока нет активных записей.<br>Перейдите во вкладку «Запись», чтобы выбрать время!
+      </div>
+    </div>
+  </main>
+
+  <!-- ==========================================================================
+       MODAL 1: ALTEGIO BRIDGE MODAL (С КРЕСТИКОМ ВЫХОДА ✕)
+       ========================================================================== -->
+  <div class="modal-backdrop" id="altegioModal">
+    <div class="ticket-pass" style="text-align: center;">
+      <!-- Close Cross Button -->
+      <button class="modal-close-btn" onclick="closeAltegioModal()" aria-label="Закрыть">✕</button>
+
+      <div style="width: 72px; height: 72px; margin: 0 auto 10px; position: relative;">
+        <img src="/static/img/ruvim.jpg" id="altegioModalImg" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid var(--cyan-primary); box-shadow: 0 0 16px var(--cyan-glow);">
+      </div>
+
+      <div style="font-size: 18px; font-weight: 900; color: #fff; margin-bottom: 4px;" id="altegioModalName">Мастер Рувим</div>
+      <span class="altegio-badge">Запись через Altegio</span>
+
+      <p style="font-size: 12.5px; color: var(--steel-muted); margin: 14px 0 18px; line-height: 1.45;">
+        Этот мастер пока принимает записи через платформу <b>Altegio</b>.<br>
+        <span style="color: var(--cyan-primary); font-weight: 700;">Совсем скоро он тоже появится здесь в Telegram!</span>
+      </p>
+
+      <div class="ticket-actions-group">
+        <a href="https://n807184.alteg.io/" target="_blank" class="ticket-btn cyan">
+          <span>🔗 Записаться в Altegio ↗</span>
+        </a>
+        <button class="ticket-btn secondary" onclick="closeAltegioModal()">
+          <span>💈 Записаться к Yakov в Telegram</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL 2: POP-UP UPSELL MODAL (ВСПЛЫВАЮЩЕЕ ОКНО ДОПРОДАЖ)
+       ========================================================================== -->
+  <div class="modal-backdrop" id="upsellModal">
+    <div class="ticket-pass" style="max-width: 380px;">
+      <button class="modal-close-btn" onclick="closeUpsellModal()" aria-label="Закрыть">✕</button>
+      
+      <div class="upsell-modal-head">
+        <span class="upsell-modal-badge">⚡ СПЕЦИАЛЬНОЕ ПРЕДЛОЖЕНИЕ</span>
+        <h3 style="font-size: 17px; font-weight: 900; color: #fff; margin-top: 6px;">Добавить к визиту?</h3>
+        <p style="font-size: 11.5px; color: var(--steel-muted); margin-top: 3px;">
+          Выберите доп. услуги в 1 клик перед подтверждением:
+        </p>
+      </div>
+
+      <div class="upsell-modal-grid">
+        <!-- 1. Wax -->
+        <div class="upsell-modal-card" data-id="wax" data-title="Воск (нос/уши)" data-price="30" onclick="toggleModalUpsell(this)">
+          <div class="upsell-card-left">
+            <span class="upsell-card-icon">✂️</span>
+            <div>
+              <div class="upsell-card-title">Воск (нос / уши)</div>
+              <div class="upsell-card-sub">Быстрое удаление волос</div>
+            </div>
+          </div>
+          <div class="upsell-card-price">+30 руб</div>
+        </div>
+
+        <!-- 2. Spa Beard -->
+        <div class="upsell-modal-card" data-id="spa_beard" data-title="Спа-уход за бородой" data-price="40" onclick="toggleModalUpsell(this)">
+          <div class="upsell-card-left">
+            <span class="upsell-card-icon">🧔</span>
+            <div>
+              <div class="upsell-card-title">Спа-уход за бородой</div>
+              <div class="upsell-card-sub">Масло + горячий компресс</div>
+            </div>
+          </div>
+          <div class="upsell-card-price">+40 руб</div>
+        </div>
+
+        <!-- 3. Patches -->
+        <div class="upsell-modal-card" data-id="patches" data-title="Патчи под глаза" data-price="40" onclick="toggleModalUpsell(this)">
+          <div class="upsell-card-left">
+            <span class="upsell-card-icon">👁️</span>
+            <div>
+              <div class="upsell-card-title">Патчи под глаза</div>
+              <div class="upsell-card-sub">Снятие усталости и отеков</div>
+            </div>
+          </div>
+          <div class="upsell-card-price">+40 руб</div>
+        </div>
+
+        <!-- 4. Camouflage -->
+        <div class="upsell-modal-card" data-id="camo" data-title="Камуфляж седины" data-price="100" onclick="toggleModalUpsell(this)">
+          <div class="upsell-card-left">
+            <span class="upsell-card-icon">💈</span>
+            <div>
+              <div class="upsell-card-title">Камуфляж седины</div>
+              <div class="upsell-card-sub">Естественный тон бороды</div>
+            </div>
+          </div>
+          <div class="upsell-card-price">+100 руб</div>
+        </div>
+      </div>
+
+      <div class="upsell-total-bar">
+        <span style="color: var(--steel-muted); font-size: 12px;">Итого к оплате:</span>
+        <span class="upsell-total-val" id="upsellModalTotalDisplay">200 руб</span>
+      </div>
+
+      <div class="ticket-actions-group">
+        <button class="ticket-btn green" onclick="confirmBookingFromUpsell()">
+          <span>Подтвердить запись →</span>
+        </button>
+        <button class="ticket-btn secondary" onclick="skipUpsellAndConfirm()">
+          <span>Только основная услуга</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL 3: BANKING-STYLE SUCCESS SCREEN (АНИМАЦИЯ НОЖНИЦ & ЧЕК)
+       ========================================================================== -->
+  <div class="modal-backdrop" id="successModal">
+    <div class="ticket-pass" style="max-width: 370px;">
+      <!-- Scissors Animation -->
+      <div class="scissors-anim-wrap">
+        <div class="scissors-circle">
+          <span class="scissors-icon">✂️</span>
+          <span class="check-badge">✓</span>
+        </div>
+      </div>
+
+      <div class="success-receipt-header">
+        <div class="success-title">ВЫ ЗАПИСАНЫ!</div>
+        <div class="success-subtitle">Ждём вас в Daddy Barbershop</div>
+      </div>
+
+      <!-- 2h Reminder Callout -->
+      <div class="reminder-callout-box">
+        <div class="reminder-icon">🔔</div>
+        <div class="reminder-text">
+          <b>Напоминание за 2 часа</b><br>
+          Бот пришлет уведомление со слотом прямо в Telegram.
+        </div>
+      </div>
+
+      <!-- Receipt Box -->
+      <div class="receipt-box">
+        <div class="receipt-row">
+          <span class="receipt-label">Мастер</span>
+          <span class="receipt-val" id="successMasterVal">Yakov (Топ-барбер ⭐)</span>
+        </div>
+        <div class="receipt-row">
+          <span class="receipt-label">Услуга</span>
+          <span class="receipt-val" id="successServiceVal">Стрижка</span>
+        </div>
+        <div class="receipt-row" id="successExtrasRow" style="display: none;">
+          <span class="receipt-label">Доп. услуги</span>
+          <span class="receipt-val" id="successExtrasVal" style="color: var(--gold-primary);">Воск</span>
+        </div>
+        <div class="receipt-row">
+          <span class="receipt-label">Дата и время</span>
+          <span class="receipt-val highlight-date" id="successDateVal">12.10 в 15:00</span>
+        </div>
+        <div class="receipt-row">
+          <span class="receipt-label">К оплате на месте</span>
+          <span class="receipt-val price-total" id="successPriceVal">200 руб</span>
+        </div>
+        <div class="receipt-row">
+          <span class="receipt-label">Адрес</span>
+          <span class="receipt-val" style="font-size: 11px;">ул. 25 Октября, 94</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="ticket-actions-group">
+        <!-- Smart 1-Click Calendar Button (Auto-detects iOS vs Android) -->
+        <button class="ticket-btn primary" onclick="autoSmartAddToCalendar()">
+          <span>📅 Добавить в календарь (1 клик)</span>
+        </button>
+
+        <!-- Google Maps Route Button -->
+        <button class="ticket-btn secondary" onclick="openGoogleMapsRoute()">
+          <span>🗺️ Маршрут в Google Maps</span>
+        </button>
+
+        <!-- Prominent Green Confirm Button -->
+        <button class="ticket-btn green" onclick="finishBookingSuccess()">
+          <span>✓ Подтвердить запись</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL 4: COMPLAINT INTERCEPTION MODAL (< 3 ЗВЕЗДЫ)
+       ========================================================================== -->
+  <div class="modal-backdrop" id="complaintModal">
+    <div class="ticket-pass" style="max-width: 380px;">
+      <button class="modal-close-btn" onclick="closeComplaintModal()" aria-label="Закрыть">✕</button>
+
+      <div style="text-align: center; margin-bottom: 14px;">
+        <div style="width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 50%; background: rgba(244, 63, 94, 0.15); border: 2px solid #f43f5e; display: flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: 0 0 20px rgba(244, 63, 94, 0.25);">
+          🛡️
+        </div>
+        <div style="display: inline-block; background: rgba(244, 63, 94, 0.18); border: 1px solid rgba(244, 63, 94, 0.5); color: #ff6b81; font-size: 10px; font-weight: 800; padding: 2px 10px; border-radius: var(--radius-pill); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+          🔒 Приватное обращение управляющему
+        </div>
+        <h3 style="font-size: 17px; font-weight: 900; color: #fff; margin: 0 0 6px;">Нам искренне жаль, что так случилось</h3>
+        <p style="font-size: 12px; color: var(--steel-muted); line-height: 1.45; margin: 0;">
+          Расскажите, что произошло? Это обращение увидит <b>только управляющий</b>. Мы разберемся в ситуации и свяжемся с вами лично.
+        </p>
+      </div>
+
+      <div style="background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 9px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 11.5px; color: var(--steel-muted); font-weight: 600;">Ваша оценка:</span>
+        <div style="font-size: 17px; color: #f59e0b; letter-spacing: 2px; font-weight: 700;" id="complaintStarsVisual">★★☆☆☆ (2/5)</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <input type="text" class="review-input" id="complaintAuthorInput" placeholder="Ваше имя">
+        <input type="tel" class="review-input" id="complaintPhoneInput" placeholder="Номер телефона (для обратной связи от управляющего)">
+        <textarea class="review-input" id="complaintTextInput" style="height: 84px; resize: none;" placeholder="Опишите подробно, что пошло не так: качество стрижки, мастер, сервис или время ожидания..."></textarea>
+      </div>
+
+      <div class="ticket-actions-group">
+        <button class="ticket-btn primary" onclick="submitComplaint()">
+          <span>Отправить лично управляющему →</span>
+        </button>
+        <button class="ticket-btn secondary" onclick="closeComplaintModal()">
+          <span>Отмена</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Floating Tab Bar -->
+  <nav class="tab-bar">
+    <button class="tab-button active" onclick="activateAppTab('viewBooking', this)">
+      <span class="tab-icon">📅</span>
+      <span>Запись</span>
+    </button>
+    <button class="tab-button" onclick="activateAppTab('viewWorks', this)">
+      <span class="tab-icon">📸</span>
+      <span>Работы</span>
+    </button>
+    <button class="tab-button" onclick="activateAppTab('viewReviews', this)">
+      <span class="tab-icon">⭐</span>
+      <span>Отзывы</span>
+    </button>
+    <button class="tab-button" onclick="activateAppTab('viewMyVisit', this)">
+      <span class="tab-icon">👤</span>
+      <span>Мой визит</span>
+    </button>
+  </nav>
+
+  <!-- Application Core Script -->
+  <script>
+    const telegramApp = window.Telegram.WebApp;
+    telegramApp.expand();
+    telegramApp.ready();
+
+    let telegramUserId = 0;
+    let activeClientName = "";
+
+    if (telegramApp.initDataUnsafe && telegramApp.initDataUnsafe.user) {
+      const u = telegramApp.initDataUnsafe.user;
+      telegramUserId = u.id;
+      activeClientName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || "";
+    }
+
+    /* Master Profiles */
+    const MASTERS_CONFIG = {
+      yakov: {
+        id: "yakov",
+        name: "Yakov",
+        role: "Топ-барбер салона ⭐",
+        grade: "top",
+        image: "/static/img/yakov.jpg"
+      },
+      ruvim: {
+        id: "ruvim",
+        name: "Рувим",
+        role: "Топ-барбер ⭐",
+        grade: "top",
+        image: "/static/img/ruvim.jpg"
+      },
+      liza: {
+        id: "liza",
+        name: "Лиза",
+        role: "Барбер салона",
+        grade: "barber",
+        image: "/static/img/liza.jpg"
+      }
+    };
+
+    /* Official Price List */
+    const SERVICES_CATALOG = [
+      { id: "haircut", title: "Стрижка", hint: "Мытье + стрижка + укладка", barberPrice: 170, topPrice: 200 },
+      { id: "complex", title: "Комплекс (Стрижка + Борода)", hint: "Полный фирменный уход", barberPrice: 290, topPrice: 330 },
+      { id: "beard", title: "Оформление бороды", hint: "Контур, распаривание, бритье", barberPrice: 100, topPrice: 150 },
+      { id: "shave", title: "Королевское бритье", hint: "Классическое бритье опасной бритвой", barberPrice: 170, topPrice: 200 },
+      { id: "vip_complex", title: "Стрижка + Борода + Камуфляж", hint: "Премиальный образ 'All Inclusive'", barberPrice: 360, topPrice: 450 }
+    ];
+
+    /* Booking State */
+    const bookingState = {
+      selectedMasterId: "yakov",
+      selectedMasterName: "Yakov",
+      selectedGrade: "top",
+      selectedServiceTitle: "Стрижка",
+      basePrice: 200,
+      selectedDateString: "",
+      selectedTimeString: "",
+      selectedUpsells: [] // array of { id, title, price }
+    };
+
+    let activeReviewTargetMasterId = "yakov";
+    let activeReviewScore = 5;
+    let activeReviewTag = "Стрижка";
+    let currentPassData = null;
+
+    function triggerHaptic(type = 'light') {
+      try {
+        if (telegramApp && telegramApp.HapticFeedback) {
+          if (type === 'success' || type === 'warning' || type === 'error') {
+            telegramApp.HapticFeedback.notificationOccurred(type);
+          } else if (['light', 'medium', 'heavy', 'rigid', 'soft'].includes(type)) {
+            telegramApp.HapticFeedback.impactOccurred(type);
+          } else {
+            telegramApp.HapticFeedback.impactOccurred('light');
+          }
+        }
+      } catch (e) {
+        console.warn("Haptic feedback error:", e);
+      }
+    }
+
+    function showAppAlert(msg, callback) {
+      try {
+        if (telegramApp && typeof telegramApp.showAlert === 'function') {
+          telegramApp.showAlert(msg, callback || (() => {}));
+          return;
+        }
+      } catch (e) {
+        console.warn("showAlert error:", e);
+      }
+      alert(msg);
+      if (callback) callback();
+    }
+
+    /* Phone mask for +373 */
+    const phoneInput = document.getElementById('clientPhoneNumber');
+    phoneInput.addEventListener('input', function() {
+      let val = this.value.replace(/\D/g, '');
+      if (val.startsWith('373')) val = val.substring(3);
+      if (val.length > 8) val = val.substring(0, 8);
+
+      let formatted = "+373 ";
+      if (val.length > 0) formatted += "(" + val.substring(0, Math.min(3, val.length));
+      if (val.length >= 3) formatted += ") " + val.substring(3, Math.min(5, val.length));
+      if (val.length >= 5) formatted += "-" + val.substring(5, Math.min(8, val.length));
+      this.value = formatted;
+    });
+
+    phoneInput.addEventListener('focus', function() {
+      if (!this.value.trim()) this.value = "+373 (";
+    });
+
+    /* Tab Switcher (4 Navigation Tabs) */
+    function activateAppTab(screenId, tabBtn) {
+      document.querySelectorAll('.screen-view').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+
+      const target = document.getElementById(screenId);
+      if (target) target.classList.add('active');
+      if (tabBtn) tabBtn.classList.add('active');
+      triggerHaptic('light');
+
+      // Keep bottom Telegram MainButton hidden
+      telegramApp.MainButton.hide();
+
+      if (screenId === 'viewWorks') {
+        loadPortfolioFromBackend();
+      } else if (screenId === 'viewReviews') {
+        loadMasterReviews(activeReviewTargetMasterId || 'yakov');
+      } else if (screenId === 'viewMyVisit') {
+        loadMyBookingsView();
+      }
+    }
+
+    /* Master Selector */
+    function selectMaster(id, name, grade, img) {
+      bookingState.selectedMasterId = id;
+      bookingState.selectedMasterName = name;
+      bookingState.selectedGrade = grade;
+
+      document.querySelectorAll('.master-mini-chip').forEach(c => c.classList.remove('active'));
+      if (event && event.currentTarget) event.currentTarget.classList.add('active');
+
+      document.getElementById('activeMasterImg').src = img;
+      document.getElementById('activeMasterName').innerText = name;
+      document.getElementById('displayActiveGrade').innerText = grade === 'top' ? "Топ-барбер ⭐" : "Барбер салона";
+
+      triggerHaptic('medium');
+      renderDynamicServices();
+      fetchAvailableSlots();
+    }
+
+    /* Altegio Bridge Handler */
+    function handleOtherMasterClick(masterName, masterAvatar) {
+      triggerHaptic('medium');
+      document.getElementById('altegioModalImg').src = masterAvatar;
+      document.getElementById('altegioModalName').innerText = `Мастер ${masterName}`;
+      document.getElementById('altegioModal').classList.add('open');
+    }
+
+    function closeAltegioModal() {
+      document.getElementById('altegioModal').classList.remove('open');
+      selectMaster('yakov', 'Yakov', 'top', '/static/img/yakov.jpg');
+      const yakovChip = document.querySelector('.master-mini-chip');
+      if (yakovChip) yakovChip.classList.add('active');
+    }
+
+    /* Calculate Total Price */
+    function getTotalPrice() {
+      const upsellSum = bookingState.selectedUpsells.reduce((acc, u) => acc + u.price, 0);
+      return bookingState.basePrice + upsellSum;
+    }
+
+    /* Render Services */
+    function renderDynamicServices() {
+      const container = document.getElementById('bookingServicesList');
+      container.innerHTML = "";
+      const isTop = bookingState.selectedGrade === "top";
+
+      SERVICES_CATALOG.forEach(service => {
+        const cost = isTop ? service.topPrice : service.barberPrice;
+        const isActive = service.title === bookingState.selectedServiceTitle;
+
+        if (isActive) {
+          bookingState.basePrice = cost;
+          document.getElementById('displayActiveServiceCost').innerText = `${cost} руб`;
+        }
+
+        const row = document.createElement('div');
+        row.className = `service-row ${isActive ? 'active' : ''}`;
+        row.innerHTML = `
+          <div class="service-info">
+            <div class="service-title">${service.title}</div>
+            <div class="service-desc">${service.hint}</div>
+          </div>
+          <div class="service-price-block">
+            <span class="service-cost">${cost}</span>
+            <span class="service-curr">руб</span>
+          </div>
+        `;
+
+        row.addEventListener('click', () => {
+          document.querySelectorAll('.service-row').forEach(r => r.classList.remove('active'));
+          row.classList.add('active');
+          bookingState.selectedServiceTitle = service.title;
+          bookingState.basePrice = cost;
+          document.getElementById('displayActiveServiceCost').innerText = `${cost} руб`;
+          triggerHaptic('light');
+          synchronizeTelegramMainButton();
+        });
+
+        container.appendChild(row);
+      });
+      synchronizeTelegramMainButton();
+    }
+
+    /* Calendar Strip Builder */
+    function initializeInteractiveCalendar() {
+      const stripContainer = document.getElementById('bookingCalendarStrip');
+      stripContainer.innerHTML = "";
+      const weekdayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+      const currentDate = new Date();
+      document.getElementById('displayActiveMonth').innerText = monthNames[currentDate.getMonth()];
+
+      for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+        const computedDate = new Date();
+        computedDate.setDate(computedDate.getDate() + dayOffset);
+
+        const weekdayLabel = dayOffset === 0 ? "СЕГ" : (dayOffset === 1 ? "ЗАВ" : weekdayNames[computedDate.getDay()]);
+        const dayOfMonth = computedDate.getDate();
+        const dateRepresentation = `${String(dayOfMonth).padStart(2, '0')}.${String(computedDate.getMonth() + 1).padStart(2, '0')}`;
+
+        const cell = document.createElement('div');
+        cell.className = `date-pill ${dayOffset === 0 ? 'active' : ''}`;
+        cell.innerHTML = `
+          <span class="day-w">${weekdayLabel}</span>
+          <span class="day-n">${dayOfMonth}</span>
+        `;
+
+        if (dayOffset === 0) bookingState.selectedDateString = dateRepresentation;
+
+        cell.addEventListener('click', () => {
+          document.querySelectorAll('.date-pill').forEach(c => c.classList.remove('active'));
+          cell.classList.add('active');
+          bookingState.selectedDateString = dateRepresentation;
+          triggerHaptic('light');
+          fetchAvailableSlots();
+        });
+
+        stripContainer.appendChild(cell);
+      }
+    }
+
+    /* Slots API */
+    async function fetchAvailableSlots() {
+      if (!bookingState.selectedDateString) return;
+      try {
+        const queryUrl = `/api/slots?barber=${encodeURIComponent(bookingState.selectedMasterName)}&date=${encodeURIComponent(bookingState.selectedDateString)}`;
+        const res = await fetch(queryUrl);
+        const data = await res.json();
+        const busy = data.busy || [];
+
+        let valid = false;
+        document.querySelectorAll('#bookingSlotsGrid .slot-chip').forEach(chip => {
+          const t = chip.dataset.time;
+          if (busy.includes(t)) {
+            chip.classList.add('disabled');
+            chip.classList.remove('active');
+          } else {
+            chip.classList.remove('disabled');
+            if (chip.classList.contains('active')) valid = true;
+          }
+        });
+
+        if (!valid) {
+          bookingState.selectedTimeString = "";
+          const firstFree = document.querySelector('#bookingSlotsGrid .slot-chip:not(.disabled)');
+          if (firstFree) {
+            firstFree.classList.add('active');
+            bookingState.selectedTimeString = firstFree.dataset.time;
+          }
+        }
+        synchronizeTelegramMainButton();
+      } catch (e) {
+        console.error("Slots fetch error:", e);
+      }
+    }
+
+    /* Slots Click */
+    document.querySelectorAll('#bookingSlotsGrid .slot-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        if (chip.classList.contains('disabled')) return;
+        document.querySelectorAll('#bookingSlotsGrid .slot-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        bookingState.selectedTimeString = chip.dataset.time;
+        triggerHaptic('light');
+        synchronizeTelegramMainButton();
+      });
+    });
+
+    /* Keep Telegram bottom MainButton hidden - client uses in-page booking button */
+    function synchronizeTelegramMainButton() {
+      telegramApp.MainButton.hide();
+    }
+
+    /* ==========================================================================
+       START BOOKING FLOW -> OPENS POPUP UPSELL MODAL
+       ========================================================================== */
+    function startBookingFlow() {
+      const nameInput = document.getElementById('clientFullName');
+      const enteredName = nameInput.value.trim();
+      const enteredPhone = phoneInput.value.trim();
+
+      if (!enteredName || enteredName.length < 2) {
+        triggerHaptic('medium');
+        nameInput.focus();
+        nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showAppAlert("Пожалуйста, укажите ваше имя.");
+        return;
+      }
+
+      const rawDigits = enteredPhone.replace(/\D/g, '');
+      if (rawDigits.length < 11) {
+        triggerHaptic('medium');
+        phoneInput.focus();
+        phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showAppAlert("Пожалуйста, введите полный номер телефона: +373 (___) __-___");
+        return;
+      }
+
+      if (!bookingState.selectedTimeString) {
+        showAppAlert("Пожалуйста, выберите удобное время записи.");
+        return;
+      }
+
+      activeClientName = enteredName;
+      triggerHaptic('medium');
+
+      // Update Upsell Total Display
+      document.getElementById('upsellModalTotalDisplay').innerText = `${getTotalPrice()} руб`;
+      
+      // Open Upsell Modal
+      document.getElementById('upsellModal').classList.add('open');
+    }
+
+    function closeUpsellModal() {
+      document.getElementById('upsellModal').classList.remove('open');
+    }
+
+    /* Modal Upsell Toggle */
+    function toggleModalUpsell(card) {
+      const id = card.dataset.id;
+      const title = card.dataset.title;
+      const price = parseInt(card.dataset.price);
+
+      const existsIdx = bookingState.selectedUpsells.findIndex(u => u.id === id);
+      if (existsIdx > -1) {
+        bookingState.selectedUpsells.splice(existsIdx, 1);
+        card.classList.remove('active');
+      } else {
+        bookingState.selectedUpsells.push({ id, title, price });
+        card.classList.add('active');
+      }
+
+      triggerHaptic('light');
+      document.getElementById('upsellModalTotalDisplay').innerText = `${getTotalPrice()} руб`;
+    }
+
+    function skipUpsellAndConfirm() {
+      bookingState.selectedUpsells = [];
+      document.querySelectorAll('.upsell-modal-card').forEach(c => c.classList.remove('active'));
+      confirmBookingFromUpsell();
+    }
+
+    /* ==========================================================================
+       CONFIRM BOOKING -> OPENS BANKING-STYLE SUCCESS SCREEN
+       ========================================================================== */
+    function confirmBookingFromUpsell() {
+      closeUpsellModal();
+      triggerHaptic('success');
+
+      const total = getTotalPrice();
+      const extrasStr = bookingState.selectedUpsells.map(u => u.title).join(", ");
+
+      currentPassData = {
+        master: bookingState.selectedMasterName,
+        service: bookingState.selectedServiceTitle,
+        extras: extrasStr,
+        date: bookingState.selectedDateString,
+        time: bookingState.selectedTimeString,
+        total: total,
+        client_name: activeClientName,
+        phone: phoneInput.value.trim()
+      };
+
+      // Populate Success Receipt
+      document.getElementById('successMasterVal').innerText = `${currentPassData.master} (Топ-барбер ⭐)`;
+      document.getElementById('successServiceVal').innerText = currentPassData.service;
+      
+      const extrasRow = document.getElementById('successExtrasRow');
+      if (currentPassData.extras) {
+        extrasRow.style.display = 'flex';
+        document.getElementById('successExtrasVal').innerText = currentPassData.extras;
+      } else {
+        extrasRow.style.display = 'none';
+      }
+
+      document.getElementById('successDateVal').innerText = `${currentPassData.date} в ${currentPassData.time}`;
+      document.getElementById('successPriceVal').innerText = `${currentPassData.total} руб`;
+
+      // Open Banking Success Modal
+      document.getElementById('successModal').classList.add('open');
+      telegramApp.MainButton.hide();
+    }
+
+    function finishBookingSuccess() {
+      document.getElementById('successModal').classList.remove('open');
+      triggerHaptic('success');
+
+      // Send to Telegram backend
+      telegramApp.sendData(JSON.stringify({
+        user_id: telegramUserId,
+        client_name: currentPassData.client_name,
+        phone: currentPassData.phone,
+        barber: currentPassData.master,
+        service: currentPassData.service,
+        extra_services: currentPassData.extras,
+        price: `${currentPassData.total} руб`,
+        total_price: currentPassData.total,
+        date: currentPassData.date,
+        time: currentPassData.time
+      }));
+    }
+
+    /* Google Maps Route */
+    function openGoogleMapsRoute() {
+      triggerHaptic('light');
+      const googleMapUrl = "https://www.google.com/maps/search/?api=1&query=Daddy+Barbershop&query_place_id=ChIJaTnhLewDyUARJBmIh1gWXuc";
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+        window.Telegram.WebApp.openLink(googleMapUrl);
+      } else {
+        window.open(googleMapUrl, '_blank');
+      }
+    }
+
+    function openMapRoute() {
+      openGoogleMapsRoute();
+    }
+
+    /* Google Calendar Link Generator (Android & Web) */
+    function getGoogleCalendarUrl(pass) {
+      if (!pass) return '';
+      const now = new Date();
+      let year = now.getFullYear();
+      let parts = (pass.date || '').split('.');
+      let day = parseInt(parts[0], 10) || now.getDate();
+      let month = parseInt(parts[1], 10) || (now.getMonth() + 1);
+      if (parts.length >= 3) {
+        year = parseInt(parts[2], 10);
+      }
+
+      const pad = (n) => String(n).padStart(2, '0');
+      let timeParts = (pass.time || '15:00').split(':');
+      let hour = parseInt(timeParts[0], 10) || 15;
+      let minute = parseInt(timeParts[1], 10) || 0;
+
+      let startDate = new Date(year, month - 1, day, hour, minute);
+      if (startDate < new Date(now.getTime() - 30 * 86400000)) {
+        startDate.setFullYear(year + 1);
+      }
+      let endDate = new Date(startDate.getTime() + 75 * 60000); // 1 час 15 мин
+
+      const startIso = `${startDate.getFullYear()}${pad(startDate.getMonth() + 1)}${pad(startDate.getDate())}T${pad(startDate.getHours())}${pad(startDate.getMinutes())}00`;
+      const endIso = `${endDate.getFullYear()}${pad(endDate.getMonth() + 1)}${pad(endDate.getDate())}${pad(endDate.getHours())}${pad(endDate.getMinutes())}00`;
+
+      const title = `Daddy Barbershop: ${pass.service} (${pass.master})`;
+      const details = `Запись в Daddy Barbershop.\nМастер: ${pass.master}\nУслуга: ${pass.service}${pass.extras ? ' + ' + pass.extras : ''}\nК оплате: ${pass.total} руб\nАдрес: ул. 25 Октября, 94\nНапоминание за 2 часа придет в Telegram!`;
+      const location = `г. Тирасполь, ул. 25 Октября, 94`;
+
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE`
+        + `&text=${encodeURIComponent(title)}`
+        + `&dates=${startIso}/${endIso}`
+        + `&details=${encodeURIComponent(details)}`
+        + `&location=${encodeURIComponent(location)}`;
+    }
+
+    /* Open Google Calendar directly (Android / Universal) */
+    function openGoogleCalendar() {
+      if (!currentPassData) return;
+      triggerHaptic('success');
+      const gUrl = getGoogleCalendarUrl(currentPassData);
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+        window.Telegram.WebApp.openLink(gUrl);
+      } else {
+        window.open(gUrl, '_blank');
+      }
+    }
+
+    /* Open Apple Calendar / .ICS natively (iOS / Mac) */
+    function openAppleCalendar() {
+      if (!currentPassData) return;
+      triggerHaptic('success');
+      const params = new URLSearchParams({
+        service: currentPassData.service,
+        barber: currentPassData.master,
+        date: currentPassData.date,
+        time: currentPassData.time,
+        price: `${currentPassData.total} руб`
+      });
+      const icsUrl = `${window.location.origin}/api/calendar.ics?${params.toString()}`;
+
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+        window.Telegram.WebApp.openLink(icsUrl);
+      } else {
+        window.location.href = icsUrl;
+      }
+    }
+
+    /* Smart 1-Click Calendar Sync (Auto iOS vs Android) */
+    function autoSmartAddToCalendar() {
+      if (!currentPassData) return;
+      triggerHaptic('success');
+      const ua = navigator.userAgent || "";
+      const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isAndroid = /Android/i.test(ua);
+
+      if (isAndroid) {
+        openGoogleCalendar();
+      } else if (isIOS) {
+        openAppleCalendar();
+      } else {
+        // Universal fallback: Google Calendar
+        openGoogleCalendar();
+      }
+    }
+
+    function downloadCurrentPassCalendar() {
+      autoSmartAddToCalendar();
+    }
+
+    /* Dynamic Portfolio Feed Loader from Backend API */
+    async function loadPortfolioFromBackend() {
+      try {
+        const res = await fetch('/api/portfolio');
+        const data = await res.json();
+        const works = data.works || [];
+        document.getElementById('portfolioCountMeta').innerText = `${works.length} работ`;
+
+        const grid = document.getElementById('instagramPortfolioGrid');
+        grid.innerHTML = "";
+
+        works.forEach(w => {
+          const card = document.createElement('div');
+          card.className = "portfolio-card";
+          card.innerHTML = `
+            <img src="${w.image_url}" alt="${w.caption}">
+            <div class="insta-icon-badge">📸</div>
+            <div class="portfolio-card-overlay">
+              <span class="portfolio-card-title">${w.caption}</span>
+              <span class="portfolio-card-tag">${w.barber} • ${w.tag}</span>
+            </div>
+          `;
+          card.addEventListener('click', () => {
+            triggerHaptic('light');
+            window.open(w.instagram_url || 'https://www.instagram.com/daddy.barbershop.md/', '_blank');
+          });
+          grid.appendChild(card);
+        });
+      } catch (err) {
+        console.error("Portfolio feed error:", err);
+      }
+    }
+
+    /* Reviews Section Logic */
+    const MASTERS_DETAILS = {
+      yakov: {
+        name: 'Yakov',
+        img: '/static/img/yakov.jpg',
+        badge: 'TOP',
+        rating: '★ 5.0',
+        role: 'Топ-барбер салона ⭐',
+        desc: 'Эксперт по низким Fade, моделированию бороды и мужскому стилю. Опыт 7 лет.',
+        instaHandle: '@_yakov_barber_',
+        instaUrl: 'https://www.instagram.com/_yakov_barber_/'
+      },
+      ruvim: {
+        name: 'Рувим',
+        img: '/static/img/ruvim.jpg',
+        badge: 'TOP',
+        rating: '★ 4.9',
+        role: 'Топ-барбер ⭐',
+        desc: 'Мастер четких текстурных стрижек, классики и безупречных переходов.',
+        instaHandle: '@daddy.barbershop.md',
+        instaUrl: 'https://www.instagram.com/daddy.barbershop.md/'
+      },
+      liza: {
+        name: 'Лиза',
+        img: '/static/img/liza.jpg',
+        badge: 'BARBER',
+        rating: '★ 4.9',
+        role: 'Барбер салона',
+        desc: 'Специалист по удлиненным мужским стрижкам, уходу и идеальным укладкам.',
+        instaHandle: '@daddy.barbershop.md',
+        instaUrl: 'https://www.instagram.com/daddy.barbershop.md/'
+      }
+    };
+
+    function selectReviewTargetMaster(id, name) {
+      activeReviewTargetMasterId = id;
+      triggerHaptic('light');
+
+      // Update switcher chips
+      document.querySelectorAll('#viewReviews .master-mini-chip').forEach(c => c.classList.remove('active'));
+      const activeChip = document.getElementById(`revMasterChip_${id}`);
+      if (activeChip) activeChip.classList.add('active');
+
+      // Update hero card in reviews
+      const m = MASTERS_DETAILS[id] || MASTERS_DETAILS.yakov;
+      const imgEl = document.getElementById('revActiveMasterImg');
+      if (imgEl) imgEl.src = m.img;
+      const badgeEl = document.getElementById('revActiveMasterBadge');
+      if (badgeEl) badgeEl.innerText = m.badge;
+      const nameEl = document.getElementById('revActiveMasterName');
+      if (nameEl) nameEl.innerText = m.name;
+      const ratingEl = document.getElementById('revActiveMasterRating');
+      if (ratingEl) ratingEl.innerText = m.rating;
+      const roleEl = document.getElementById('revActiveMasterRole');
+      if (roleEl) roleEl.innerText = m.role;
+      const descEl = document.getElementById('revActiveMasterDesc');
+      if (descEl) descEl.innerText = m.desc;
+      const instaLinkEl = document.getElementById('revActiveMasterInsta');
+      if (instaLinkEl) instaLinkEl.href = m.instaUrl;
+      const instaHandleEl = document.getElementById('revActiveMasterInstaHandle');
+      if (instaHandleEl) instaHandleEl.innerText = m.instaHandle;
+
+      const titleEl = document.getElementById('reviewBuilderTitle');
+      if (titleEl) titleEl.innerText = `Оценить работу мастера ${name || m.name}`;
+      const wallTitleEl = document.getElementById('reviewsWallTitle');
+      if (wallTitleEl) wallTitleEl.innerText = `Отзывы о мастере ${name || m.name}`;
+
+      loadMasterReviews(id);
+    }
+
+    async function loadMasterReviews(masterId) {
+      try {
+        const res = await fetch(`/api/reviews?barber=${masterId}`);
+        const data = await res.json();
+        const reviews = data.reviews || [];
+        document.getElementById('heroReviewCounter').innerText = `${reviews.length} отзывов`;
+
+        const container = document.getElementById('heroReviewsWallContainer');
+        container.innerHTML = "";
+
+        if (reviews.length === 0) {
+          container.innerHTML = `<div style="font-size:12px;color:var(--steel-dim);text-align:center;padding:16px;">У мастера пока нет отзывов. Будьте первым!</div>`;
+          return;
+        }
+
+        reviews.forEach(r => {
+          const card = document.createElement('div');
+          card.className = "review-record-card";
+          card.innerHTML = `
+            <div class="review-record-header">
+              <span class="review-author-name">${r.author} • ${r.date}</span>
+              <span class="review-star-visual">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+            </div>
+            <span class="review-badge-tag">${r.tag}</span>
+            <p class="review-body-text">${r.text || 'Отличная стрижка и сервис на высшем уровне!'}</p>
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        console.error("Reviews load error:", err);
+      }
+    }
+
+    function updateComplaintNoticeUI() {
+      const noticeBox = document.getElementById('complaintNoticeBox');
+      const submitBtn = document.getElementById('submitReviewBtnText');
+      const presetTags = document.getElementById('reviewPresetTags');
+
+      if (activeReviewScore < 3) {
+        if (noticeBox) noticeBox.style.display = 'block';
+        if (submitBtn) submitBtn.innerText = 'Отправить лично управляющему (конфиденциально)';
+        if (presetTags) presetTags.style.display = 'none';
+      } else {
+        if (noticeBox) noticeBox.style.display = 'none';
+        if (submitBtn) submitBtn.innerText = 'Опубликовать отзыв';
+        if (presetTags) presetTags.style.display = 'flex';
+      }
+    }
+
+    /* Star Click - Intercepts < 3 Stars */
+    document.querySelectorAll('#starRatingSelector span').forEach(s => {
+      s.addEventListener('click', () => {
+        activeReviewScore = parseInt(s.dataset.score);
+        triggerHaptic('light');
+        document.querySelectorAll('#starRatingSelector span').forEach(el => {
+          if (parseInt(el.dataset.score) <= activeReviewScore) el.classList.add('lit');
+          else el.classList.remove('lit');
+        });
+
+        updateComplaintNoticeUI();
+
+        // Открываем модальное окно для оценок < 3 звезд
+        if (activeReviewScore < 3) {
+          openComplaintModal(activeReviewScore);
+        }
+      });
+    });
+
+    /* Open Complaint Interception Modal */
+    function openComplaintModal(score) {
+      activeReviewScore = score || activeReviewScore || 2;
+      triggerHaptic('warning');
+      const starStr = '★'.repeat(activeReviewScore) + '☆'.repeat(5 - activeReviewScore);
+      document.getElementById('complaintStarsVisual').innerText = `${starStr} (${activeReviewScore}/5)`;
+      
+      const authorField = document.getElementById('complaintAuthorInput');
+      const phoneField = document.getElementById('complaintPhoneInput');
+      const textField = document.getElementById('complaintTextInput');
+
+      const existingAuthor = document.getElementById('reviewAuthorInput').value.trim();
+      if (!authorField.value && (existingAuthor || activeClientName)) {
+        authorField.value = existingAuthor || activeClientName;
+      }
+
+      const existingPhone = (phoneInput && phoneInput.value) ? phoneInput.value.trim() : "";
+      if (!phoneField.value && existingPhone) {
+        phoneField.value = existingPhone;
+      }
+
+      const customTxt = document.getElementById('customReviewText').value.trim();
+      if (customTxt && !textField.value) {
+        textField.value = customTxt;
+      }
+
+      document.getElementById('complaintModal').classList.add('open');
+    }
+
+    function closeComplaintModal() {
+      document.getElementById('complaintModal').classList.remove('open');
+    }
+
+    /* Submit Complaint Directly & Privately to Manager */
+    async function submitComplaint() {
+      const author = document.getElementById('complaintAuthorInput').value.trim() || activeClientName || "Клиент";
+      const phone = document.getElementById('complaintPhoneInput').value.trim() || (phoneInput ? phoneInput.value.trim() : "");
+      const text = document.getElementById('complaintTextInput').value.trim();
+
+      if (!text) {
+        showAppAlert("Пожалуйста, расскажите в двух словах, что произошло, чтобы управляющий мог во всем разобраться.");
+        return;
+      }
+
+      triggerHaptic('success');
+
+      try {
+        await fetch('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: telegramUserId,
+            author: author,
+            phone: phone,
+            barber_id: activeReviewTargetMasterId,
+            rating: activeReviewScore,
+            tag: "Претензия по сервису",
+            text: text,
+            is_complaint: true
+          })
+        });
+
+        closeComplaintModal();
+        showAppAlert("Спасибо за честность! Нам искренне жаль. Ваше обращение передано лично управляющему Daddy Barbershop — мы разберемся в ситуации и свяжемся с вами в ближайшее время 🤝");
+
+        // Сбрасываем звёзды обратно в 5, чтобы интерфейс оставался аккуратным
+        activeReviewScore = 5;
+        document.querySelectorAll('#starRatingSelector span').forEach(el => el.classList.add('lit'));
+        document.getElementById('customReviewText').value = "";
+        document.getElementById('complaintTextInput').value = "";
+        updateComplaintNoticeUI();
+      } catch (err) {
+        showAppAlert("Ошибка при отправке обращения. Пожалуйста, попробуйте еще раз.");
+      }
+    }
+
+    /* Preset Tag Click */
+    document.querySelectorAll('#reviewPresetTags .preset-tag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        document.querySelectorAll('#reviewPresetTags .preset-tag').forEach(t => t.classList.remove('active'));
+        tag.classList.add('active');
+        activeReviewTag = tag.dataset.tag;
+        document.getElementById('customReviewText').value = tag.dataset.text || "";
+        triggerHaptic('light');
+      });
+    });
+
+    /* Submit Review (Public Wall for >= 3 stars, Intercept & Submit for < 3 stars) */
+    async function handleReviewSubmission() {
+      const author = document.getElementById('reviewAuthorInput').value.trim() || activeClientName || "Гость";
+      const text = document.getElementById('customReviewText').value.trim();
+
+      // Если оценка < 3 звезд — отправляем напрямую управляющему как обращение!
+      if (activeReviewScore < 3) {
+        if (!text) {
+          // Если текст не заполнен, открываем модальное окно с подсказкой
+          openComplaintModal(activeReviewScore);
+          return;
+        }
+
+        triggerHaptic('success');
+        try {
+          await fetch('/api/reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: telegramUserId,
+              author: author,
+              phone: (phoneInput && phoneInput.value) ? phoneInput.value.trim() : "",
+              barber_id: activeReviewTargetMasterId,
+              rating: activeReviewScore,
+              tag: "Претензия по сервису",
+              text: text,
+              is_complaint: true
+            })
+          });
+
+          showAppAlert("Спасибо за честность! Нам искренне жаль, что так случилось. Ваше обращение передано лично управляющему Daddy Barbershop — мы свяжемся с вами в ближайшее время 🤝");
+          document.getElementById('customReviewText').value = "";
+          activeReviewScore = 5;
+          document.querySelectorAll('#starRatingSelector span').forEach(el => el.classList.add('lit'));
+          updateComplaintNoticeUI();
+        } catch (err) {
+          showAppAlert("Ошибка при отправке обращения. Пожалуйста, попробуйте еще раз.");
+        }
+        return;
+      }
+
+      // Обычный отзыв (>= 3 звезды)
+      triggerHaptic('success');
+      const reviewText = text || `Оценка: ${activeReviewScore} звёзд`;
+
+      try {
+        await fetch('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: telegramUserId,
+            author: author,
+            barber_id: activeReviewTargetMasterId,
+            rating: activeReviewScore,
+            tag: activeReviewTag,
+            text: reviewText
+          })
+        });
+        showAppAlert(`Спасибо, ${author}! Отзыв успешно опубликован!`);
+        document.getElementById('customReviewText').value = "";
+        loadMasterReviews(activeReviewTargetMasterId);
+      } catch (e) {
+        showAppAlert("Ошибка при отправке отзыва.");
+      }
+    }
+
+    /* Load My Bookings & Loyalty */
+    async function loadMyBookingsView() {
+      if (!telegramUserId) return;
+      try {
+        const res = await fetch(`/api/my-bookings?user_id=${telegramUserId}`);
+        const data = await res.json();
+        const list = data.bookings || [];
+        const container = document.getElementById('myActiveBookingsList');
+
+        if (list.length === 0) {
+          container.innerHTML = `
+            <div style="text-align:center;color:var(--steel-dim);padding:30px 10px;font-size:13px;">
+              У вас пока нет активных записей на стрижку.<br>
+              <button class="ticket-btn primary" style="margin-top:14px;" onclick="activateAppTab('viewBooking', document.querySelectorAll('.tab-button')[0])">Записаться к Yakov</button>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = "";
+        list.forEach(b => {
+          const card = document.createElement('div');
+          card.className = "loyalty-card";
+          card.style.marginBottom = "10px";
+          card.innerHTML = `
+            <div class="loyalty-card-head">
+              <span class="loyalty-title">${b.barber} • ${b.service}</span>
+              <span class="loyalty-badge">${b.total_price || 200} руб</span>
+            </div>
+            <div style="font-size:15px;font-weight:800;color:var(--gold-primary);font-family:var(--font-mono);margin-bottom:6px;">
+              📅 ${b.date} в ${b.time}
+            </div>
+            <div style="font-size:11.5px;color:var(--steel-muted);margin-bottom:12px;">
+              📍 г. Тирасполь, ул. 25 Октября, 94 ${b.extra_services ? '<br>➕ ' + b.extra_services : ''}
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="ticket-btn secondary" style="flex:1;" onclick="viewReceiptTicket({
+                master: '${b.barber}', service: '${b.service}', extras: '${b.extra_services}',
+                date: '${b.date}', time: '${b.time}', total: ${b.total_price || 200}
+              })">Квитанция</button>
+              <button class="ticket-btn danger" style="flex:1;" onclick="cancelBookingAction(${b.id})">Отменить</button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } catch (e) {
+        console.error("Failed to load user bookings:", e);
+      }
+    }
+
+    function viewReceiptTicket(data) {
+      currentPassData = data;
+      document.getElementById('successMasterVal').innerText = `${data.master} (Топ-барбер ⭐)`;
+      document.getElementById('successServiceVal').innerText = data.service;
+      const extrasRow = document.getElementById('successExtrasRow');
+      if (data.extras) {
+        extrasRow.style.display = 'flex';
+        document.getElementById('successExtrasVal').innerText = data.extras;
+      } else {
+        extrasRow.style.display = 'none';
+      }
+      document.getElementById('successDateVal').innerText = `${data.date} в ${data.time}`;
+      document.getElementById('successPriceVal').innerText = `${data.total} руб`;
+      document.getElementById('successModal').classList.add('open');
+    }
+
+    async function cancelBookingAction(appId) {
+      if (!confirm("Вы действительно хотите отменить эту запись?")) return;
+      triggerHaptic('medium');
+      try {
+        const resp = await fetch('/api/cancel-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointment_id: appId, user_id: telegramUserId })
+        });
+        const res = await resp.json();
+        if (res.status === 'ok') {
+          showAppAlert("Запись успешно отменена.");
+          loadMyBookingsView();
+          fetchAvailableSlots();
+        } else {
+          showAppAlert("Ошибка при отмене: " + res.message);
+        }
+      } catch (err) {
+        showAppAlert("Сетевая ошибка при отмене записи.");
+      }
+    }
+
+    /* Initial Sync */
+    async function loadUserProfile() {
+      if (activeClientName) {
+        document.getElementById('clientFullName').value = activeClientName;
+        document.getElementById('reviewAuthorInput').value = activeClientName;
+      }
+
+      if (telegramUserId) {
+        try {
+          const res = await fetch(`/api/user-profile?user_id=${telegramUserId}`);
+          const p = await res.json();
+          if (p.full_name) {
+            activeClientName = p.full_name;
+            document.getElementById('clientFullName').value = p.full_name;
+            document.getElementById('reviewAuthorInput').value = p.full_name;
+          }
+          if (p.phone) phoneInput.value = p.phone;
+
+          const count = p.visits_count || 1;
+          const badge = document.getElementById('loyaltyStatusBadge');
+          if (badge) badge.innerText = `Визитов: ${count}/6`;
+        } catch(e) {}
+      }
+    }
+
+    /* Core Initialization */
+    loadUserProfile();
+    renderDynamicServices();
+    initializeInteractiveCalendar();
+    fetchAvailableSlots();
+    loadPortfolioFromBackend();
+    loadMasterReviews('yakov');
+
+    // Deep link tab routing (e.g. from bot commands)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('tab') === 'profile' || urlParams.get('tab') === 'visit') {
+      const visitBtn = document.querySelectorAll('.tab-button')[3];
+      activateAppTab('viewMyVisit', visitBtn);
+    } else if (urlParams.get('tab') === 'reviews') {
+      const revsBtn = document.querySelectorAll('.tab-button')[2];
+      activateAppTab('viewReviews', revsBtn);
+    }
+  </script>
+</body>
+</html>
