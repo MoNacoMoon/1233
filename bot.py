@@ -520,7 +520,7 @@ def get_master_reviews_db(barber_id: str):
 # ==============================================================================
 def get_main_menu():
     kb = [
-        [KeyboardButton(text="💈 Запись к Yakov (Mini App)", web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp?master=yakov"))],
+        [KeyboardButton(text="💈 Запись на стрижку", web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp"))],
         [KeyboardButton(text="📍 Адрес и контакты"), KeyboardButton(text="👤 Мой визит")]
     ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
@@ -548,8 +548,8 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
     await message.answer(
         f"Салют, {message.from_user.first_name}! 💈\n\n"
         "Добро пожаловать в <b>Daddy Barbershop</b> (г. Тирасполь).\n"
-        f"⚡ <b>Открыта эксклюзивная онлайн-запись к топ-барберу {DEFAULT_MASTER_NAME}</b>.\n\n"
-        "Нажмите кнопку ниже, чтобы выбрать удобное время в Telegram Mini App:",
+        "⚡ <b>Удобная онлайн-запись на стрижку и оформление бороды</b>.\n\n"
+        "Нажмите кнопку ниже, чтобы выбрать удобный день и время:",
         reply_markup=get_main_menu(),
         parse_mode="HTML"
     )
@@ -559,7 +559,7 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
 async def cmd_contacts(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🗺️ Маршрут в Google Maps", url=GOOGLE_MAPS_URL)],
-        [InlineKeyboardButton(text="💈 Записаться в Mini App", web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp?master=yakov"))]
+        [InlineKeyboardButton(text="💈 Записаться на стрижку", web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp"))]
     ])
     await message.answer(
         "📍 <b>Daddy Barbershop</b>\n"
@@ -578,7 +578,7 @@ async def cmd_my_visit(message: types.Message):
     bookings = get_user_active_bookings(message.from_user.id)
     if not bookings:
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"💈 Записаться к {DEFAULT_MASTER_NAME}", web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp?master=yakov"))]
+            [InlineKeyboardButton(text="💈 Записаться на стрижку", web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp"))]
         ])
         return await message.answer(
             "У вас пока нет активных записей на стрижку.\n\nХотите выбрать время?",
@@ -1079,8 +1079,8 @@ async def background_scheduler():
                         )
                         retention_kb = InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(
-                                text=f"💈 Записаться к {barber}",
-                                web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp?master=yakov")
+                                text="💈 Записаться на стрижку",
+                                web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp")
                             )]
                         ])
                         await bot.send_message(chat_id=u_id, text=retention_text, parse_mode="HTML", reply_markup=retention_kb)
