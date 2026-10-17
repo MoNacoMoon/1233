@@ -330,20 +330,8 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
-    # Начальные работы из Instagram
-    cur.execute("SELECT COUNT(*) FROM instagram_works")
-    if cur.fetchone()[0] == 0:
-        cur.executemany("""
-            INSERT INTO instagram_works (image_url, caption, tag, barber_name, instagram_url)
-            VALUES (?, ?, ?, ?, ?)
-        """, [
-            ("/static/img/portfolio/work1.jpg", "Низкий Fade с четкой геометрией", "Fade", "Yakov", INSTAGRAM_URL),
-            ("/static/img/portfolio/work2.jpg", "Моделирование бороды опасной бритвой", "Борода", "Yakov", INSTAGRAM_URL),
-            ("/static/img/portfolio/work3.jpg", "Текстурный Кроп и укладка матовой пастой", "Стрижка", "Yakov", INSTAGRAM_URL),
-            ("/static/img/portfolio/work4.jpg", "Низкий Taper Fade и оформление контуров", "Fade", "Daddy Team", INSTAGRAM_URL),
-            ("/static/img/portfolio/work5.jpg", "Классический Помпадур с пробором", "Классика", "Daddy Team", INSTAGRAM_URL),
-            ("/static/img/portfolio/work6.jpg", "Фирменное бритье с распариванием", "Бритье", "Daddy Team", INSTAGRAM_URL)
-        ])
+    # Удаляем тестовые работы-заглушки (портфолио наполняется только реальными видео от мастеров)
+    cur.execute("DELETE FROM instagram_works WHERE image_url LIKE '/static/img/portfolio/work%'")
 
     # Отзывы клиентов начинаются с чистого листа (только реальные отзывы от клиентов)
 
