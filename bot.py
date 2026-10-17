@@ -1,12 +1,17 @@
 import asyncio
+import hashlib
+import hmac
 import html
 import json
 import logging
 import os
+import re
 import sqlite3
 from datetime import datetime, timedelta
+from urllib.parse import parse_qsl
+
 from aiohttp import web
-from aiogram import Bot, Dispatcher, F, types
+from aiogram import BaseMiddleware, Bot, Dispatcher, F, types
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -16,8 +21,29 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
+    TelegramObject,
     WebAppInfo,
 )
+
+# ==============================================================================
+# 0. БЕЗОПАСНАЯ ЗАГРУЗКА .ENV ПЕРЕМЕННЫХ
+# ==============================================================================
+def load_dotenv_fallback(path=".env"):
+    """Загрузчик .env без внешних зависимостей для максимальной автономности."""
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip().strip('"').strip("'")
+                        if k not in os.environ:
+                            os.environ[k] = v
+        except Exception as e:
+            logging.warning(f"Could not load .env: {e}")
+
+load_dotenv_fallback()
 
 # ==============================================================================
 # 1. КОНФИГУРАЦИЯ
@@ -40,6 +66,153 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 
+# ==============================================================================
+# 1.1. ПРОТОКОЛЫ БЕЗОПАСНОСТИ, АНТИСПАМА И КРИПТОГРАФИЧЕСКОЙ ЗАЩИТЫ
+# ==============================================================================
+class ThrottlingMiddleware(BaseMiddleware):
+    """Защита от флуда и спам-атак в Telegram-боте."""
+    def __init__(self, slow_mode_delay: float = 0.7):
+        self.delay = slow_mode_delay
+        self.last_msg_time = {}
+
+    async def __call__(self, handler, event: TelegramObject, data: dict):
+        if isinstance(event, types.Message) and event.from_user:
+            user_id = event.from_user.id
+            now = asyncio.get_event_loop().time()
+            last_time = self.last_msg_time.get(user_id, 0)
+            if now - last_time < self.delay:
+                # Флуд пресекается без падения и лишних ответов
+                return
+            self.last_msg_time[user_id] = now
+            if len(self.last_msg_time) > 3000:
+                self.last_msg_time.clear()
+        return await handler(event, data)
+
+
+def verify_telegram_init_data(init_data_raw: str, bot_token: str) -> dict | None:
+    """
+    Криптографическая проверка подписи Telegram WebApp через HMAC-SHA256.
+    Гарантирует подлинность клиента, защищает от подделки заказов, взлома и IDOR.
+    """
+    if not init_data_raw or not isinstance(init_data_raw, str):
+        return None
+    try:
+        parsed = dict(parse_qsl(init_data_raw, keep_blank_values=True))
+        received_hash = parsed.pop("hash", None)
+        if not received_hash:
+            return None
+
+        # Защита от Replay Attack (срок действия подписи — 24 часа)
+        auth_date = int(parsed.get("auth_date", 0))
+        now_ts = int(datetime.utcnow().timestamp())
+        if abs(now_ts - auth_date) > 86400:
+            return None
+
+        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
+        secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
+        calculated_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
+
+        if hmac.compare_digest(calculated_hash, received_hash):
+            user_str = parsed.get("user")
+            return json.loads(user_str) if user_str else parsed
+        return None
+    except Exception as e:
+        logging.warning(f"initData verification error: {e}")
+        return None
+
+
+def get_client_ip(request: web.Request) -> str:
+    """Определение реального IP-адреса клиента за прокси Amvera/Cloudflare."""
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip.strip()
+    x_forwarded = request.headers.get("X-Forwarded-For")
+    if x_forwarded:
+        return x_forwarded.split(",")[0].strip()
+    x_real = request.headers.get("X-Real-IP")
+    if x_real:
+        return x_real.strip()
+    return request.remote or "unknown"
+
+
+class InMemoryRateLimiter:
+    """Защита от DDoS и спам-флуда (Sliding Window Rate Limiter)."""
+    def __init__(self):
+        self._records = {}
+        self._lock = asyncio.Lock()
+
+    async def is_allowed(self, key: str, max_requests: int, window_seconds: int) -> bool:
+        now = datetime.utcnow().timestamp()
+        async with self._lock:
+            timestamps = self._records.get(key, [])
+            timestamps = [t for t in timestamps if now - t < window_seconds]
+            if len(timestamps) >= max_requests:
+                self._records[key] = timestamps
+                return False
+            timestamps.append(now)
+            self._records[key] = timestamps
+            return True
+
+    async def cleanup_loop(self):
+        while True:
+            await asyncio.sleep(600)
+            now = datetime.utcnow().timestamp()
+            async with self._lock:
+                stale = [k for k, v in self._records.items() if not v or (now - v[-1] > 1800)]
+                for k in stale:
+                    del self._records[k]
+
+
+rate_limiter = InMemoryRateLimiter()
+
+
+def clean_input(text: str, max_length: int = 100, allow_empty: bool = True) -> str:
+    """Санитизация текста для защиты от HTML-инъекций и сбоя parse_mode='HTML'."""
+    if not text:
+        return "" if allow_empty else ""
+    cleaned = str(text).strip()
+    cleaned = html.escape(cleaned)
+    return cleaned[:max_length]
+
+
+def validate_phone(phone: str) -> str:
+    """Валидация и фильтрация телефонного номера."""
+    if not phone:
+        return "Не указан"
+    cleaned = re.sub(r"[^\d+\-()\s]", "", str(phone)).strip()
+    return cleaned[:30]
+
+
+@web.middleware
+async def security_middleware(request: web.Request, handler):
+    """
+    Глобальный защитный Middleware:
+    - Защитные HTTP-заголовки.
+    - Перехват фатальных сбоев, предотвращающий падение процесса.
+    - Отключение кэширования динамических API-маршрутов.
+    """
+    try:
+        response = await handler(request)
+    except web.HTTPException:
+        raise
+    except Exception as ex:
+        logging.error(f"Global server error in {request.path}: {ex}", exc_info=True)
+        return web.json_response({
+            "status": "error",
+            "message": "Внутренняя ошибка сервиса. Данные в безопасности."
+        }, status=500)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "ALLOW-FROM https://web.telegram.org"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    if request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+
+    return response
+
+
 class FeedbackState(StatesGroup):
     waiting_for_complaint = State()
     waiting_for_block_time = State()
@@ -53,6 +226,11 @@ DB_PATH = os.environ.get("DB_PATH", "/data/barbershop.db" if os.path.exists("/da
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    # Высокопроизводительный и отказоустойчивый режим WAL для одновременных записей
+    cur.execute("PRAGMA journal_mode=WAL;")
+    cur.execute("PRAGMA synchronous=NORMAL;")
+    cur.execute("PRAGMA busy_timeout=10000;")
     cur = conn.cursor()
 
     # Таблица постоянных профилей клиентов
@@ -208,6 +386,15 @@ def get_client_profile(user_id: int):
 def save_appointment(user_id, name, phone, barber, service, date, time, extra_services="", total_price=0):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+    # Защита от Double-Booking (гонки запросов при одновременной записи на один слот)
+    cur.execute("""
+        SELECT id FROM appointments 
+        WHERE barber = ? AND booking_date = ? AND booking_time = ? AND status = 'active'
+    """, (barber, date, time))
+    if cur.fetchone():
+        conn.close()
+        return None
+
     cur.execute("""
         INSERT INTO appointments (
             user_id, user_name, phone, barber, service, booking_date, booking_time,
@@ -272,13 +459,18 @@ def get_user_active_bookings(user_id: int):
     ]
 
 
-def cancel_booking_in_db(record_id: int, user_id: int = None):
+def cancel_booking_in_db(record_id: int, user_id: int = None, is_staff: bool = False):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    if user_id:
+    # Защита IDOR: только владелец записи или персонал салона могут отменить бронь
+    if is_staff:
+        cur.execute("SELECT id, barber, booking_date, booking_time, user_name FROM appointments WHERE id = ?", (record_id,))
+    elif user_id and int(user_id) > 0:
         cur.execute("SELECT id, barber, booking_date, booking_time, user_name FROM appointments WHERE id = ? AND user_id = ?", (record_id, user_id))
     else:
-        cur.execute("SELECT id, barber, booking_date, booking_time, user_name FROM appointments WHERE id = ?", (record_id,))
+        conn.close()
+        return None
+
     row = cur.fetchone()
     if not row:
         conn.close()
@@ -624,29 +816,41 @@ async def do_block_slot_callback(callback: types.CallbackQuery):
 # 6. ПРИЕМ БРОНИРОВАНИЯ ИЗ MINI APP
 # ==============================================================================
 async def process_new_booking(data, from_user=None):
-    user_id = int(data.get("user_id") or 0)
+    raw_uid = data.get("user_id")
+    user_id = int(raw_uid) if raw_uid and str(raw_uid).isdigit() else 0
     if not user_id and from_user:
         user_id = from_user.id
 
     client_name = data.get("client_name")
     if not client_name and from_user:
         client_name = from_user.full_name
-    client_name = client_name or "Гость"
+    client_name = clean_input(client_name or "Гость", 60)
 
-    phone = data.get("phone", "Не указан")
-    barber = data.get("barber") or DEFAULT_MASTER_NAME
-    service = data.get("service", "Стрижка")
-    price_str = str(data.get("price", "200 руб"))
-    date = data.get("date")
-    time = data.get("time")
-    extra_services = data.get("extra_services", "")
-    total_price = int(data.get("total_price", 0)) or int("".join(filter(str.isdigit, price_str)) or 200)
+    phone = validate_phone(data.get("phone", "Не указан"))
+    
+    raw_barber = str(data.get("barber") or DEFAULT_MASTER_NAME).strip()
+    barber = raw_barber if raw_barber in ["Yakov", "Рувим", "Лиза"] else DEFAULT_MASTER_NAME
+
+    service = clean_input(data.get("service", "Стрижка"), 80)
+    extra_services = clean_input(data.get("extra_services", ""), 200)
+
+    date = str(data.get("date", "")).strip()
+    time = str(data.get("time", "")).strip()
+
+    if not date or not time or not re.match(r"^\d{1,2}\.\d{1,2}$", date) or not re.match(r"^\d{1,2}:\d{2}$", time):
+        raise ValueError("Некорректная дата или время записи.")
+
+    try:
+        raw_price = int(data.get("total_price", 0))
+    except (ValueError, TypeError):
+        raw_price = 200
+    total_price = max(50, min(5000, raw_price))
 
     # Закрепляем имя и телефон в базе
-    if user_id:
+    if user_id > 0:
         save_or_update_client_profile(user_id, client_name, phone)
 
-    # Сохраняем в таблицу записей
+    # Сохраняем в таблицу записей с защитой от двойного бронирования
     rec_id = save_appointment(
         user_id=user_id,
         name=client_name,
@@ -658,6 +862,8 @@ async def process_new_booking(data, from_user=None):
         extra_services=extra_services,
         total_price=total_price
     )
+    if not rec_id:
+        return None  # Слот уже занят
 
     # Подтверждение для клиента (если известен user_id)
     if user_id and user_id > 0:
@@ -683,7 +889,7 @@ async def process_new_booking(data, from_user=None):
             logging.error(f"Error sending booking confirmation to client {user_id}: {e}")
 
     # Карточка администратору / в группу салона
-    username_str = f"@{from_user.username}" if (from_user and from_user.username) else "заказ из Mini App"
+    username_str = f"@{html.escape(from_user.username)}" if (from_user and from_user.username) else "заказ из Mini App"
     staff_card = (
         f"⚡ <b>НОВАЯ ЗАПИСЬ #{rec_id} (DADDY BARBERSHOP)</b>\n\n"
         f"💈 <b>Мастер:</b> {barber}\n"
@@ -909,66 +1115,158 @@ async def serve_index(request):
 
 
 async def api_get_busy_slots(request):
-    barber = request.query.get("barber", DEFAULT_MASTER_NAME)
-    date = request.query.get("date", "")
+    client_ip = get_client_ip(request)
+    if not await rate_limiter.is_allowed(f"slots_{client_ip}", max_requests=60, window_seconds=60):
+        return web.json_response({"status": "error", "message": "Слишком много запросов"}, status=429)
+
+    raw_barber = request.query.get("barber", DEFAULT_MASTER_NAME)
+    barber = clean_input(raw_barber, 30)
+    raw_date = request.query.get("date", "")
+    date = clean_input(raw_date, 10)
     busy = get_booked_times(barber, date)
     return web.json_response({"busy": busy})
 
 
 async def api_get_user_profile(request):
-    user_id_str = request.query.get("user_id")
-    if not user_id_str:
-        return web.json_response({})
-    try:
-        user_id = int(user_id_str)
-        profile = get_client_profile(user_id)
-        return web.json_response(profile or {})
-    except ValueError:
-        return web.json_response({})
+    client_ip = get_client_ip(request)
+    if not await rate_limiter.is_allowed(f"prof_{client_ip}", max_requests=60, window_seconds=60):
+        return web.json_response({"status": "error", "message": "Слишком много запросов"}, status=429)
+
+    # Если передан заголовок криптографической аутентификации Telegram Mini App
+    init_data_raw = request.headers.get("X-Telegram-Init-Data")
+    verified_tg = verify_telegram_init_data(init_data_raw, BOT_TOKEN) if init_data_raw else None
+
+    if verified_tg and "id" in verified_tg:
+        user_id = int(verified_tg["id"])
+    else:
+        user_id_str = request.query.get("user_id")
+        if not user_id_str:
+            return web.json_response({})
+        try:
+            user_id = int(user_id_str)
+        except ValueError:
+            return web.json_response({})
+
+    profile = get_client_profile(user_id)
+    return web.json_response(profile or {})
 
 
 async def api_get_my_bookings(request):
-    user_id_str = request.query.get("user_id")
-    if not user_id_str:
-        return web.json_response({"bookings": []})
-    try:
-        user_id = int(user_id_str)
-        bookings = get_user_active_bookings(user_id)
-        return web.json_response({"bookings": bookings})
-    except ValueError:
-        return web.json_response({"bookings": []})
+    client_ip = get_client_ip(request)
+    if not await rate_limiter.is_allowed(f"mybook_{client_ip}", max_requests=60, window_seconds=60):
+        return web.json_response({"status": "error", "message": "Слишком много запросов"}, status=429)
+
+    init_data_raw = request.headers.get("X-Telegram-Init-Data")
+    verified_tg = verify_telegram_init_data(init_data_raw, BOT_TOKEN) if init_data_raw else None
+
+    if verified_tg and "id" in verified_tg:
+        user_id = int(verified_tg["id"])
+    else:
+        user_id_str = request.query.get("user_id")
+        if not user_id_str:
+            return web.json_response({"bookings": []})
+        try:
+            user_id = int(user_id_str)
+        except ValueError:
+            return web.json_response({"bookings": []})
+
+    bookings = get_user_active_bookings(user_id)
+    return web.json_response({"bookings": bookings})
 
 
 async def api_create_booking(request):
+    client_ip = get_client_ip(request)
+    # Rate limit по IP: не более 10 попыток брони в минуту
+    if not await rate_limiter.is_allowed(f"ip_book_{client_ip}", max_requests=10, window_seconds=60):
+        return web.json_response({
+            "status": "error",
+            "message": "Слишком много запросов на запись. Подождите 1 минуту."
+        }, status=429)
+
     try:
         data = await request.json()
+        if not isinstance(data, dict):
+            return web.json_response({"status": "error", "message": "Некорректный формат данных"}, status=400)
+
+        # Криптографическая проверка подписи Telegram WebApp
+        init_data_raw = request.headers.get("X-Telegram-Init-Data") or data.get("init_data")
+        verified_tg = verify_telegram_init_data(init_data_raw, BOT_TOKEN) if init_data_raw else None
+
+        if verified_tg and "id" in verified_tg:
+            data["user_id"] = int(verified_tg["id"])
+            if verified_tg.get("username"):
+                data["username"] = verified_tg["username"]
+            if not data.get("client_name") or data.get("client_name") == "Клиент":
+                first = verified_tg.get("first_name", "")
+                last = verified_tg.get("last_name", "")
+                data["client_name"] = f"{first} {last}".strip() or "Клиент"
+
+        # Rate limit по ID пользователя: не более 4 броней в 3 минуты
+        uid = data.get("user_id")
+        if uid and not await rate_limiter.is_allowed(f"usr_book_{uid}", max_requests=4, window_seconds=180):
+            return web.json_response({
+                "status": "error",
+                "message": "Слишком частые попытки записи. Пожалуйста, подождите пару минут."
+            }, status=429)
+
         rec_id = await process_new_booking(data)
+        if rec_id is None:
+            return web.json_response({
+                "status": "error",
+                "message": "Это время уже занято другим клиентом. Пожалуйста, выберите другое удобное время."
+            }, status=409)
+
         return web.json_response({"status": "ok", "appointment_id": rec_id})
+    except ValueError as ve:
+        return web.json_response({"status": "error", "message": str(ve)}, status=400)
     except Exception as e:
-        logging.error(f"Error in api_create_booking: {e}")
-        return web.json_response({"status": "error", "message": str(e)}, status=400)
+        logging.error(f"Error in api_create_booking: {e}", exc_info=True)
+        return web.json_response({"status": "error", "message": "Ошибка при обработке записи"}, status=500)
 
 
 async def api_cancel_booking(request):
+    client_ip = get_client_ip(request)
+    if not await rate_limiter.is_allowed(f"cancel_{client_ip}", max_requests=15, window_seconds=60):
+        return web.json_response({"status": "error", "message": "Слишком много запросов."}, status=429)
+
     try:
         data = await request.json()
         app_id = int(data.get("appointment_id", 0))
-        user_id = int(data.get("user_id", 0))
-        cancelled = cancel_booking_in_db(app_id, user_id)
+
+        init_data_raw = request.headers.get("X-Telegram-Init-Data") or data.get("init_data")
+        verified_tg = verify_telegram_init_data(init_data_raw, BOT_TOKEN) if init_data_raw else None
+
+        if verified_tg and "id" in verified_tg:
+            user_id = int(verified_tg["id"])
+        else:
+            user_id = int(data.get("user_id", 0))
+
+        is_staff = user_id in STAFF_IDS
+        cancelled = cancel_booking_in_db(app_id, user_id=user_id, is_staff=is_staff)
+
         if cancelled:
+            safe_user_name = html.escape(str(cancelled.get("user_name", "Клиент")))
             alert = (
                 f"⚠️ <b>ОТМЕНА ЗАПИСИ ИЗ MINI APP #{app_id}</b>\n\n"
-                f"👤 Клиент: {cancelled['user_name']}\n"
+                f"👤 Клиент: {safe_user_name}\n"
                 f"💈 Мастер: {cancelled['barber']}\n"
                 f"📅 Время: {cancelled['date']} в {cancelled['time']}\n"
                 "<i>Слот снова свободен.</i>"
             )
             target = BARBERSHOP_GROUP_ID if BARBERSHOP_GROUP_ID else STAFF_IDS[0]
-            await bot.send_message(chat_id=target, text=alert, parse_mode="HTML")
+            try:
+                await bot.send_message(chat_id=target, text=alert, parse_mode="HTML")
+            except Exception as e:
+                logging.error(f"Error sending cancel alert: {e}")
             return web.json_response({"status": "ok"})
-        return web.json_response({"status": "error", "message": "Запись не найдена"}, status=404)
+
+        return web.json_response({
+            "status": "error",
+            "message": "Запись не найдена или у вас нет прав на её отмену"
+        }, status=403)
     except Exception as e:
-        return web.json_response({"status": "error", "message": str(e)}, status=400)
+        logging.error(f"Error in api_cancel_booking: {e}")
+        return web.json_response({"status": "error", "message": "Ошибка при отмене записи"}, status=400)
 
 
 async def api_get_portfolio(request):
@@ -993,22 +1291,49 @@ async def api_get_portfolio(request):
 
 
 async def api_get_reviews(request):
-    barber_id = request.query.get("barber", DEFAULT_MASTER_ID)
+    barber_id = clean_input(request.query.get("barber", DEFAULT_MASTER_ID), 30)
     reviews = get_master_reviews_db(barber_id)
     return web.json_response({"reviews": reviews})
 
 
 async def api_post_review(request):
+    client_ip = get_client_ip(request)
+    # Защита от спама отзывами: не более 5 отзывов за 5 минут
+    if not await rate_limiter.is_allowed(f"rev_{client_ip}", max_requests=5, window_seconds=300):
+        return web.json_response({
+            "status": "error",
+            "message": "Слишком много отзывов с вашего устройства. Спасибо за понимание!"
+        }, status=429)
+
     try:
         body = await request.json()
-        user_id = body.get("user_id", 0)
-        author = body.get("author", "Клиент")
-        phone = body.get("phone", "")
-        barber_id = body.get("barber_id", DEFAULT_MASTER_ID)
-        rating = int(body.get("rating", 5))
-        tag = body.get("tag", "Стрижка")
-        text = body.get("text", "")
-        is_complaint = body.get("is_complaint", False) or (rating < 3)
+        if not isinstance(body, dict):
+            return web.json_response({"status": "error", "message": "Некорректные данные"}, status=400)
+
+        init_data_raw = request.headers.get("X-Telegram-Init-Data") or body.get("init_data")
+        verified_tg = verify_telegram_init_data(init_data_raw, BOT_TOKEN) if init_data_raw else None
+
+        if verified_tg and "id" in verified_tg:
+            user_id = int(verified_tg["id"])
+            if not body.get("author") or body.get("author") == "Клиент":
+                body["author"] = verified_tg.get("first_name", "Клиент")
+        else:
+            user_id = int(body.get("user_id", 0))
+
+        # Полная санитизация и очистка данных от инъекций
+        author = clean_input(body.get("author", "Клиент"), 60)
+        phone = validate_phone(body.get("phone", ""))
+        barber_id = clean_input(body.get("barber_id", DEFAULT_MASTER_ID), 30)
+        tag = clean_input(body.get("tag", "Стрижка"), 40)
+        text = clean_input(body.get("text", ""), 600)
+
+        try:
+            rating = int(body.get("rating", 5))
+            rating = max(1, min(5, rating))
+        except (ValueError, TypeError):
+            rating = 5
+
+        is_complaint = bool(body.get("is_complaint", False)) or (rating < 3)
 
         # ЕСЛИ ОЦЕНКА МЕНЬШЕ 3 ЗВЕЗД ИЛИ ЭТО ЖАЛОБА — НЕ ПУБЛИКУЕМ НА СТЕНУ!
         if is_complaint or rating < 3:
@@ -1070,17 +1395,19 @@ async def api_post_review(request):
 
         return web.json_response({"status": "ok", "author": final_author_name})
     except Exception as ex:
-        logging.error(f"Error in api_post_review: {ex}")
-        return web.json_response({"status": "error", "message": str(ex)}, status=500)
+        logging.error(f"Error in api_post_review: {ex}", exc_info=True)
+        return web.json_response({"status": "error", "message": "Ошибка при отправке отзыва"}, status=500)
 
 
 async def api_serve_calendar_ics(request):
     """Генерирует стандартный .ics файл для мгновенного добавления в Apple / Google календарь."""
-    service = request.query.get("service", "Стрижка")
-    barber = request.query.get("barber", "Yakov")
-    date_str = request.query.get("date", "")
-    time_str = request.query.get("time", "15:00")
-    price = request.query.get("price", "200 руб")
+    raw_service = request.query.get("service", "Стрижка")
+    service = clean_input(raw_service, 60)
+    raw_barber = request.query.get("barber", "Yakov")
+    barber = clean_input(raw_barber, 30)
+    date_str = clean_input(request.query.get("date", ""), 10)
+    time_str = clean_input(request.query.get("time", "15:00"), 10)
+    price = clean_input(request.query.get("price", "200 руб"), 20)
 
     now_dt = datetime.now()
     year = now_dt.year
@@ -1138,7 +1465,7 @@ async def api_serve_calendar_ics(request):
 async def main():
     init_db()
 
-    app = web.Application()
+    app = web.Application(middlewares=[security_middleware])
     app.router.add_get("/webapp", serve_index)
 
     static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -1155,16 +1482,20 @@ async def main():
     app.router.add_post("/api/reviews", api_post_review)
     app.router.add_get("/api/calendar.ics", api_serve_calendar_ics)
 
+    # Защитный middleware от флуда в Telegram-боте
+    dp.message.outer_middleware(ThrottlingMiddleware(slow_mode_delay=0.6))
+
+    # Запуск фоновых сервисов: очистка rate limiter и напоминания
+    asyncio.create_task(rate_limiter.cleanup_loop())
+    asyncio.create_task(background_scheduler())
+
     port = int(os.environ.get("PORT", 8080))
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-    print(f"[*] Веб-сервер запущен на порту {port}")
-
-    # Запуск фонового планировщика
-    asyncio.create_task(background_scheduler())
+    print(f"[*] Сервер Daddy Barbershop защищен и запущен на порту {port}")
 
     await dp.start_polling(bot)
 

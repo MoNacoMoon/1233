@@ -2102,6 +2102,31 @@
       if (callback) callback();
     }
 
+    /**
+     * Защищенный HTTP-клиент (Anti-DDoS, HMAC-SHA256 Auth & Error Resilience)
+     */
+    async function secureFetch(url, options = {}) {
+      options.headers = options.headers || {};
+      const initData = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) ? window.Telegram.WebApp.initData : '';
+      if (initData) {
+        options.headers['X-Telegram-Init-Data'] = initData;
+      }
+      try {
+        const response = await fetch(url, options);
+        if (response.status === 429) {
+          const errData = await response.json().catch(() => ({}));
+          showAppAlert(errData.message || "Слишком много запросов. Пожалуйста, подождите минуту.");
+          throw new Error("Rate limit exceeded");
+        }
+        return response;
+      } catch (err) {
+        if (err.message !== "Rate limit exceeded") {
+          console.warn("secureFetch error:", err);
+        }
+        throw err;
+      }
+    }
+
     /* Phone mask for +373 */
     const phoneInput = document.getElementById('clientPhoneNumber');
     phoneInput.addEventListener('input', function() {
@@ -2268,7 +2293,7 @@
       if (!bookingState.selectedDateString) return;
       try {
         const queryUrl = `/api/slots?barber=${encodeURIComponent(bookingState.selectedMasterName)}&date=${encodeURIComponent(bookingState.selectedDateString)}`;
-        const res = await fetch(queryUrl);
+        const res = await secureFetch(queryUrl);
         const data = await res.json();
         const busy = data.busy || [];
 
@@ -2406,11 +2431,17 @@
 
       // 1. Direct REST API call (guaranteed 100% to save in DB and notify Telegram)
       try {
-        await fetch('/api/book', {
+        const resp = await secureFetch('/api/book', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        if (resp && resp.status === 409) {
+          const conflictData = await resp.json().catch(() => ({}));
+          showAppAlert(conflictData.message || "Это время уже занято другим клиентом. Пожалуйста, выберите другое время.");
+          fetchAvailableSlots();
+          return false;
+        }
       } catch (err) {
         console.error("Booking API error:", err);
       }
@@ -2587,7 +2618,7 @@
     /* Dynamic Portfolio Feed Loader from Backend API */
     async function loadPortfolioFromBackend() {
       try {
-        const res = await fetch('/api/portfolio');
+        const res = await secureFetch('/api/portfolio');
         const data = await res.json();
         const works = data.works || [];
         document.getElementById('portfolioCountMeta').innerText = `${works.length} работ`;
@@ -2689,7 +2720,7 @@
 
     async function loadMasterReviews(masterId) {
       try {
-        const res = await fetch(`/api/reviews?barber=${masterId}`);
+        const res = await secureFetch(`/api/reviews?barber=${masterId}`);
         const data = await res.json();
         const reviews = data.reviews || [];
         document.getElementById('heroReviewCounter').innerText = `${reviews.length} отзывов`;
@@ -2802,7 +2833,7 @@
       triggerHaptic('success');
 
       try {
-        await fetch('/api/reviews', {
+        await secureFetch('/api/reviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2857,7 +2888,7 @@
 
         triggerHaptic('success');
         try {
-          await fetch('/api/reviews', {
+          await secureFetch('/api/reviews', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2888,7 +2919,7 @@
       const reviewText = text || `Оценка: ${activeReviewScore} звёзд`;
 
       try {
-        await fetch('/api/reviews', {
+        await secureFetch('/api/reviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2912,7 +2943,7 @@
     async function loadMyBookingsView() {
       if (!telegramUserId) return;
       try {
-        const res = await fetch(`/api/my-bookings?user_id=${telegramUserId}`);
+        const res = await secureFetch(`/api/my-bookings?user_id=${telegramUserId}`);
         const data = await res.json();
         const list = data.bookings || [];
         const container = document.getElementById('myActiveBookingsList');
@@ -2977,18 +3008,18 @@
       if (!confirm("Вы действительно хотите отменить эту запись?")) return;
       triggerHaptic('medium');
       try {
-        const resp = await fetch('/api/cancel-booking', {
+        const resp = await secureFetch('/api/cancel-booking', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ appointment_id: appId, user_id: telegramUserId })
         });
         const res = await resp.json();
-        if (res.status === 'ok') {
+        if (resp.ok && res.status === 'ok') {
           showAppAlert("Запись успешно отменена.");
           loadMyBookingsView();
           fetchAvailableSlots();
         } else {
-          showAppAlert("Ошибка при отмене: " + res.message);
+          showAppAlert("Ошибка при отмене: " + (res.message || "Действие отклонено"));
         }
       } catch (err) {
         showAppAlert("Сетевая ошибка при отмене записи.");
@@ -3004,7 +3035,7 @@
 
       if (telegramUserId) {
         try {
-          const res = await fetch(`/api/user-profile?user_id=${telegramUserId}`);
+          const res = await secureFetch(`/api/user-profile?user_id=${telegramUserId}`);
           const p = await res.json();
           if (p.full_name) {
             activeClientName = p.full_name;

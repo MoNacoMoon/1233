@@ -8,3 +8,6 @@ ngrok
 .venv/
 venv/
 ENV/
+*.db
+barbershop.db
+*.log
