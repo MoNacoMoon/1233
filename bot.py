@@ -219,6 +219,10 @@ class FeedbackState(StatesGroup):
     waiting_for_block_time = State()
 
 
+class PortfolioState(StatesGroup):
+    waiting_for_caption = State()
+
+
 # ==============================================================================
 # 2. БАЗА ДАННЫХ SQLITE (barbershop.db)
 # ==============================================================================
@@ -898,7 +902,8 @@ async def process_new_booking(data, from_user=None):
         f"💬 <b>Телеграм:</b> {username_str}"
     )
     staff_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Отзыв взят на месте", callback_data=f"adm_revdone_{rec_id}")]
+        [InlineKeyboardButton(text="✅ Отзыв взят на месте", callback_data=f"adm_revdone_{rec_id}")],
+        [InlineKeyboardButton(text="🎬 Работы в приложении", callback_data="show_admin_works")]
     ])
 
     target = BARBERSHOP_GROUP_ID if BARBERSHOP_GROUP_ID else STAFF_IDS[0]
@@ -968,83 +973,79 @@ async def user_cancel_appointment(callback: types.CallbackQuery):
 # ==============================================================================
 # 6.1. УПРАВЛЕНИЕ ПОРТФОЛИО И ВИДЕО ИЗ ЗАКРЫТОГО ЧАТА САЛОНА
 # ==============================================================================
-pending_portfolio_videos = {}
+# ==============================================================================
+# 6.1. УПРАВЛЕНИЕ ПОРТФОЛИО И ВИДЕО ИЗ ЗАКРЫТОГО ЧАТА САЛОНА
+# ==============================================================================
+async def show_works_management(event, is_callback: bool = False):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, caption, barber_name, tag, video_url FROM instagram_works ORDER BY id DESC")
+    rows = cur.fetchall()
+    conn.close()
+
+    total = len(rows)
+    text = f"💈 <b>ПОРТФОЛИО MINI APP ({total} работ)</b>\n\n"
+    if not rows:
+        text += (
+            "В приложении пока нет опубликованных видео.\n\n"
+            "📹 <i>Чтобы добавить работу, просто отправьте видеоролик прямо в этот чат!</i>"
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Обновить", callback_data="show_admin_works")]
+        ])
+    else:
+        text += "<i>Нажмите на кнопку под работой, чтобы удалить её из приложения:</i>\n\n"
+        kb_list = []
+        for r in rows[:15]:
+            w_id, cap, barb, tg, v_url = r
+            type_icon = "🎬" if v_url else "📸"
+            text += f"{type_icon} <b>#{w_id}</b> {html.escape(cap)} (<i>{html.escape(barb)}</i>)\n"
+            kb_list.append([
+                InlineKeyboardButton(text=f"🗑 Удалить #{w_id} ({cap[:18]})", callback_data=f"del_work_{w_id}")
+            ])
+        kb_list.append([InlineKeyboardButton(text="🔄 Обновить список", callback_data="show_admin_works")])
+        kb = InlineKeyboardMarkup(inline_keyboard=kb_list)
+
+    if is_callback:
+        try:
+            await event.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        except Exception:
+            pass
+    else:
+        await event.reply(text, reply_markup=kb, parse_mode="HTML")
 
 
-@dp.message(F.video)
-async def handle_staff_video(message: types.Message):
-    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
-    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
-    if not (is_staff or is_salon_group):
-        return
-
-    video = message.video
-    caption = message.caption or "Стильная стрижка и укладка"
-    thumb_id = video.thumbnail.file_id if video.thumbnail else None
-
-    # Сохраняем во временный буфер по message_id
-    pending_portfolio_videos[message.message_id] = {
-        "file_id": video.file_id,
-        "caption": caption,
-        "thumb_id": thumb_id,
-        "from_user": message.from_user.full_name if message.from_user else "Мастер"
-    }
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="💈 Опубликовать в Mini App", callback_data=f"pub_v_{message.message_id}"),
-            InlineKeyboardButton(text="❌ Отмена", callback_data=f"ign_v_{message.message_id}")
-        ]
-    ])
-
-    await message.reply(
-        "🎬 <b>Новое видео работы для портфолио</b>\n\n"
-        f"📝 <b>Подпись:</b> <i>{html.escape(caption)}</i>\n\n"
-        "Опубликовать этот ролик в ленте работ Mini App?",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
-
-
-@dp.callback_query(F.data.startswith("pub_v_"))
-async def callback_publish_video(callback: types.CallbackQuery):
-    msg_id = int(callback.data.replace("pub_v_", ""))
-    video_data = pending_portfolio_videos.get(msg_id)
-    if not video_data:
-        return await callback.answer("Данные видео устарели. Отправьте ролик заново.", show_alert=True)
-
-    await callback.message.edit_text("⏳ <i>Оптимизирую и сохраняю видео на сервер...</i>", parse_mode="HTML")
-    await callback.answer("Загрузка...")
+async def process_and_publish_video(status_msg_holder, file_id: str, thumb_id: str, caption: str, edit_existing: bool = False):
+    if edit_existing:
+        msg = await status_msg_holder.edit_text("⏳ <i>Оптимизирую и сохраняю видео на сервер...</i>", parse_mode="HTML")
+    else:
+        msg = await status_msg_holder.reply("⏳ <i>Оптимизирую и сохраняю видео на сервер...</i>", parse_mode="HTML")
 
     try:
         ts = int(time.time())
         vid_filename = f"work_{ts}.mp4"
         vid_path = os.path.join(PORTFOLIO_DIR, vid_filename)
 
-        # Скачиваем оригинальный mp4-файл из Telegram
-        file_info = await bot.get_file(video_data["file_id"])
+        file_info = await bot.get_file(file_id)
         await bot.download_file(file_info.file_path, vid_path)
 
-        # Скачиваем превью-обложку кадра если есть
         img_url = "/static/img/hero_yakov.jpg"
-        if video_data.get("thumb_id"):
+        if thumb_id:
             try:
                 thumb_filename = f"thumb_{ts}.jpg"
                 thumb_path = os.path.join(PORTFOLIO_DIR, thumb_filename)
-                thumb_info = await bot.get_file(video_data["thumb_id"])
+                thumb_info = await bot.get_file(thumb_id)
                 await bot.download_file(thumb_info.file_path, thumb_path)
                 img_url = f"/media/{thumb_filename}"
             except Exception as e:
                 logging.error(f"Error downloading video thumbnail: {e}")
 
-        # Парсим подпись вида: "Название | Мастер | Категория"
-        raw_caption = video_data["caption"]
         barber = "Yakov"
         tag = "Стрижка"
-        clean_title = raw_caption
+        clean_title = caption.strip()
 
-        if "|" in raw_caption:
-            parts = [p.strip() for p in raw_caption.split("|")]
+        if "|" in caption:
+            parts = [p.strip() for p in caption.split("|")]
             clean_title = parts[0]
             if len(parts) > 1 and parts[1]:
                 barber = parts[1]
@@ -1053,7 +1054,6 @@ async def callback_publish_video(callback: types.CallbackQuery):
 
         video_url = f"/media/{vid_filename}"
 
-        # Записываем в базу данных
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute("""
@@ -1064,31 +1064,129 @@ async def callback_publish_video(callback: types.CallbackQuery):
         work_id = cur.lastrowid
         conn.close()
 
-        pending_portfolio_videos.pop(msg_id, None)
-
         del_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🗑 Удалить из приложения", callback_data=f"del_work_{work_id}")]
+            [InlineKeyboardButton(text="🎬 Все работы в Mini App", callback_data="show_admin_works")],
+            [InlineKeyboardButton(text="🗑 Удалить эту работу", callback_data=f"del_work_{work_id}")]
         ])
 
-        await callback.message.edit_text(
+        text_success = (
             f"✅ <b>Видео успешно опубликовано в Mini App!</b>\n\n"
             f"🎬 <b>Работа:</b> {html.escape(clean_title)}\n"
             f"💈 <b>Мастер:</b> {html.escape(barber)}\n"
             f"🏷️ <b>Категория:</b> {html.escape(tag)}\n\n"
-            "<i>Клиенты уже могут смотреть его в разделе «Работы» и записываться прямо с ролика!</i>",
-            reply_markup=del_kb,
+            "<i>Клиенты уже могут смотреть его в разделе «Работы» и записываться прямо с ролика!</i>"
+        )
+        await msg.edit_text(text_success, reply_markup=del_kb, parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"Error publishing video: {e}", exc_info=True)
+        await msg.edit_text(f"❌ Ошибка публикации видео: {e}")
+
+
+@dp.message(F.video)
+async def handle_staff_video(message: types.Message, state: FSMContext):
+    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
+    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
+    if not (is_staff or is_salon_group):
+        return
+
+    video = message.video
+    thumb_id = video.thumbnail.file_id if video.thumbnail else None
+    initial_caption = (message.caption or "").strip()
+
+    await state.set_state(PortfolioState.waiting_for_caption)
+    await state.update_data(
+        file_id=video.file_id,
+        thumb_id=thumb_id,
+        initial_caption=initial_caption
+    )
+
+    if initial_caption:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Опубликовать с этой подписью", callback_data="pub_use_initial")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="pub_cancel")]
+        ])
+        await message.reply(
+            "📹 <b>Видео принято!</b>\n\n"
+            f"📝 Текущее описание: <i>{html.escape(initial_caption)}</i>\n\n"
+            "✍️ <b>Напишите в ответ новое название/описание</b>\n"
+            "или нажмите кнопку ниже, чтобы опубликовать с текущей подписью:\n"
+            "<i>(Формат: Название | Мастер | Категория)</i>",
+            reply_markup=kb,
             parse_mode="HTML"
         )
-    except Exception as e:
-        logging.error(f"Error saving portfolio video: {e}", exc_info=True)
-        await callback.message.edit_text(f"❌ Ошибка сохранения видео: {e}")
+    else:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⏭ Опубликовать как «Стильная стрижка»", callback_data="pub_use_default")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="pub_cancel")]
+        ])
+        await message.reply(
+            "📹 <b>Видео принято!</b>\n\n"
+            "✍️ <b>Напишите в ответ название стрижки или описание для клиентов:</b>\n"
+            "<i>Например: «Текстурный кроп» или «Fade и борода | Yakov»</i>",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
 
 
-@dp.callback_query(F.data.startswith("ign_v_"))
-async def callback_ignore_video(callback: types.CallbackQuery):
-    msg_id = int(callback.data.replace("ign_v_", ""))
-    pending_portfolio_videos.pop(msg_id, None)
+@dp.message(PortfolioState.waiting_for_caption, F.text)
+async def handle_staff_video_caption_reply(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    await state.clear()
+    if not data or not data.get("file_id"):
+        return await message.reply("Данные видео устарели. Пожалуйста, отправьте видео заново.")
+
+    caption = message.text.strip()
+    await process_and_publish_video(
+        status_msg_holder=message,
+        file_id=data["file_id"],
+        thumb_id=data.get("thumb_id"),
+        caption=caption
+    )
+
+
+@dp.callback_query(F.data == "pub_use_initial", PortfolioState.waiting_for_caption)
+async def callback_pub_use_initial(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    await state.clear()
+    if not data or not data.get("file_id"):
+        return await callback.answer("Данные видео устарели.", show_alert=True)
+    caption = data.get("initial_caption") or "Стильная стрижка и укладка"
+    await process_and_publish_video(
+        status_msg_holder=callback.message,
+        file_id=data["file_id"],
+        thumb_id=data.get("thumb_id"),
+        caption=caption,
+        edit_existing=True
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "pub_use_default", PortfolioState.waiting_for_caption)
+async def callback_pub_use_default(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    await state.clear()
+    if not data or not data.get("file_id"):
+        return await callback.answer("Данные видео устарели.", show_alert=True)
+    await process_and_publish_video(
+        status_msg_holder=callback.message,
+        file_id=data["file_id"],
+        thumb_id=data.get("thumb_id"),
+        caption="Стильная стрижка и укладка | Yakov | Стрижка",
+        edit_existing=True
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "pub_cancel")
+async def callback_pub_cancel(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
     await callback.message.edit_text("❌ Публикация видео отменена.")
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "show_admin_works")
+async def callback_show_admin_works(callback: types.CallbackQuery):
+    await show_works_management(callback, is_callback=True)
     await callback.answer()
 
 
@@ -1097,10 +1195,11 @@ async def callback_delete_work(callback: types.CallbackQuery):
     work_id = int(callback.data.replace("del_work_", ""))
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT video_url, image_url FROM instagram_works WHERE id = ?", (work_id,))
+    cur.execute("SELECT video_url, image_url, caption FROM instagram_works WHERE id = ?", (work_id,))
     row = cur.fetchone()
+    cap = "Работа"
     if row:
-        v_url, i_url = row
+        v_url, i_url, cap = row
         cur.execute("DELETE FROM instagram_works WHERE id = ?", (work_id,))
         conn.commit()
         for u in [v_url, i_url]:
@@ -1113,12 +1212,24 @@ async def callback_delete_work(callback: types.CallbackQuery):
                     except Exception:
                         pass
     conn.close()
-    await callback.message.edit_text("🗑 <b>Работа удалена из Mini App.</b>", parse_mode="HTML")
+    await callback.message.edit_text(f"🗑 <b>Работа #{work_id} «{html.escape(cap)}» удалена из Mini App.</b>", parse_mode="HTML")
     await callback.answer("Удалено!")
 
 
 @dp.message(Command("works"))
+@dp.message(Command("portfolio"))
+@dp.message(F.text.lower().in_(["работы", "💈 работы", "портфолио", "наши работы", "🎬 работы"]))
 async def cmd_list_works(message: types.Message):
+    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
+    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
+    if not (is_staff or is_salon_group):
+        return
+    await show_works_management(message)
+
+
+@dp.message(Command("admin"))
+@dp.message(Command("panel"))
+async def cmd_salon_panel(message: types.Message):
     is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
     is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
     if not (is_staff or is_salon_group):
@@ -1126,21 +1237,25 @@ async def cmd_list_works(message: types.Message):
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT id, caption, barber_name, tag FROM instagram_works ORDER BY id DESC")
-    rows = cur.fetchall()
+    cur.execute("SELECT COUNT(*) FROM instagram_works")
+    works_count = cur.fetchone()[0]
+    today_str = datetime.now().strftime("%d.%m")
+    cur.execute("SELECT COUNT(*) FROM appointments WHERE booking_date = ? AND status = 'active'", (today_str,))
+    today_count = cur.fetchone()[0]
     conn.close()
 
-    if not rows:
-        return await message.reply("В портфолио пока нет опубликованных работ.")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"🎬 Работы в Mini App ({works_count})", callback_data="show_admin_works")],
+        [InlineKeyboardButton(text=f"📅 Записей на сегодня: {today_count}", callback_data="adm_today_stub")]
+    ])
 
-    text = "💈 <b>Работы в портфолио Mini App:</b>\n\n"
-    kb_list = []
-    for r in rows:
-        w_id, cap, barb, tg = r
-        text += f"• #{w_id} <b>{cap}</b> ({barb} • {tg})\n"
-        kb_list.append([InlineKeyboardButton(text=f"🗑 Удалить #{w_id} ({cap[:18]})", callback_data=f"del_work_{w_id}")])
-
-    await message.reply(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_list), parse_mode="HTML")
+    await message.reply(
+        "💈 <b>ПАНЕЛЬ УПРАВЛЕНИЯ DADDY BARBERSHOP</b>\n\n"
+        "• Отправьте видео в этот чат — бот спросит название и добавит ролик в Mini App.\n"
+        "• Нажмите <b>«Работы в Mini App»</b> ниже, чтобы посмотреть и удалить работы.",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
 
 
 async def schedule_review_poll(record_id: int, user_id: int, user_name: str, delay_seconds: int):
