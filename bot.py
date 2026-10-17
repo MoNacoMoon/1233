@@ -52,7 +52,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "8928081500:AAFhxVBjkp4GLOIpzn7R4i4PtF0x
 STAFF_IDS = [int(x.strip()) for x in os.environ.get("STAFF_IDS", "5027569984").split(",") if x.strip()]
 BARBERSHOP_GROUP_ID = int(os.environ.get("BARBERSHOP_GROUP_ID", "-1004483657150"))
 
-WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://daddy-barber-moon32225.amvera.io").rstrip("/")
+WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://daddy-moon32225.waw0.amvera.tech").rstrip("/")
 GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJaTnhLewDyUARJBmIh1gWXuc"
 GOOGLE_MAPS_URL = "https://www.google.com/maps/search/?api=1&query=Daddy+Barbershop&query_place_id=ChIJaTnhLewDyUARJBmIh1gWXuc"
 ALTEGIO_URL = "https://n807184.alteg.io/"
