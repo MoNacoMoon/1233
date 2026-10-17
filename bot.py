@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import sqlite3
+import time
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl
 
@@ -222,6 +223,8 @@ class FeedbackState(StatesGroup):
 # 2. БАЗА ДАННЫХ SQLITE (barbershop.db)
 # ==============================================================================
 DB_PATH = os.environ.get("DB_PATH", "/data/barbershop.db" if os.path.exists("/data") else "barbershop.db")
+PORTFOLIO_DIR = os.path.join("/data", "portfolio") if os.path.exists("/data") else os.path.join(os.path.dirname(__file__), "portfolio_media")
+os.makedirs(PORTFOLIO_DIR, exist_ok=True)
 
 
 def init_db():
@@ -305,7 +308,7 @@ def init_db():
         )
     """)
 
-    # Таблица галереи работ из Instagram (@daddy.barbershop.md)
+    # Таблица галереи работ (фото и нативные видео)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS instagram_works (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -314,9 +317,14 @@ def init_db():
             tag TEXT DEFAULT 'Стрижка',
             barber_name TEXT DEFAULT 'Yakov',
             instagram_url TEXT DEFAULT 'https://www.instagram.com/daddy.barbershop.md/',
+            video_url TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    try:
+        cur.execute("ALTER TABLE instagram_works ADD COLUMN video_url TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
 
     # Начальные работы из Instagram
     cur.execute("SELECT COUNT(*) FROM instagram_works")
@@ -957,6 +965,184 @@ async def user_cancel_appointment(callback: types.CallbackQuery):
     await callback.answer()
 
 
+# ==============================================================================
+# 6.1. УПРАВЛЕНИЕ ПОРТФОЛИО И ВИДЕО ИЗ ЗАКРЫТОГО ЧАТА САЛОНА
+# ==============================================================================
+pending_portfolio_videos = {}
+
+
+@dp.message(F.video)
+async def handle_staff_video(message: types.Message):
+    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
+    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
+    if not (is_staff or is_salon_group):
+        return
+
+    video = message.video
+    caption = message.caption or "Стильная стрижка и укладка"
+    thumb_id = video.thumbnail.file_id if video.thumbnail else None
+
+    # Сохраняем во временный буфер по message_id
+    pending_portfolio_videos[message.message_id] = {
+        "file_id": video.file_id,
+        "caption": caption,
+        "thumb_id": thumb_id,
+        "from_user": message.from_user.full_name if message.from_user else "Мастер"
+    }
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💈 Опубликовать в Mini App", callback_data=f"pub_v_{message.message_id}"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data=f"ign_v_{message.message_id}")
+        ]
+    ])
+
+    await message.reply(
+        "🎬 <b>Новое видео работы для портфолио</b>\n\n"
+        f"📝 <b>Подпись:</b> <i>{html.escape(caption)}</i>\n\n"
+        "Опубликовать этот ролик в ленте работ Mini App?",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+
+@dp.callback_query(F.data.startswith("pub_v_"))
+async def callback_publish_video(callback: types.CallbackQuery):
+    msg_id = int(callback.data.replace("pub_v_", ""))
+    video_data = pending_portfolio_videos.get(msg_id)
+    if not video_data:
+        return await callback.answer("Данные видео устарели. Отправьте ролик заново.", show_alert=True)
+
+    await callback.message.edit_text("⏳ <i>Оптимизирую и сохраняю видео на сервер...</i>", parse_mode="HTML")
+    await callback.answer("Загрузка...")
+
+    try:
+        ts = int(time.time())
+        vid_filename = f"work_{ts}.mp4"
+        vid_path = os.path.join(PORTFOLIO_DIR, vid_filename)
+
+        # Скачиваем оригинальный mp4-файл из Telegram
+        file_info = await bot.get_file(video_data["file_id"])
+        await bot.download_file(file_info.file_path, vid_path)
+
+        # Скачиваем превью-обложку кадра если есть
+        img_url = "/static/img/hero_yakov.jpg"
+        if video_data.get("thumb_id"):
+            try:
+                thumb_filename = f"thumb_{ts}.jpg"
+                thumb_path = os.path.join(PORTFOLIO_DIR, thumb_filename)
+                thumb_info = await bot.get_file(video_data["thumb_id"])
+                await bot.download_file(thumb_info.file_path, thumb_path)
+                img_url = f"/media/{thumb_filename}"
+            except Exception as e:
+                logging.error(f"Error downloading video thumbnail: {e}")
+
+        # Парсим подпись вида: "Название | Мастер | Категория"
+        raw_caption = video_data["caption"]
+        barber = "Yakov"
+        tag = "Стрижка"
+        clean_title = raw_caption
+
+        if "|" in raw_caption:
+            parts = [p.strip() for p in raw_caption.split("|")]
+            clean_title = parts[0]
+            if len(parts) > 1 and parts[1]:
+                barber = parts[1]
+            if len(parts) > 2 and parts[2]:
+                tag = parts[2]
+
+        video_url = f"/media/{vid_filename}"
+
+        # Записываем в базу данных
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO instagram_works (image_url, caption, tag, barber_name, instagram_url, video_url)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (img_url, clean_input(clean_title, 100), clean_input(tag, 30), clean_input(barber, 30), INSTAGRAM_URL, video_url))
+        conn.commit()
+        work_id = cur.lastrowid
+        conn.close()
+
+        pending_portfolio_videos.pop(msg_id, None)
+
+        del_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🗑 Удалить из приложения", callback_data=f"del_work_{work_id}")]
+        ])
+
+        await callback.message.edit_text(
+            f"✅ <b>Видео успешно опубликовано в Mini App!</b>\n\n"
+            f"🎬 <b>Работа:</b> {html.escape(clean_title)}\n"
+            f"💈 <b>Мастер:</b> {html.escape(barber)}\n"
+            f"🏷️ <b>Категория:</b> {html.escape(tag)}\n\n"
+            "<i>Клиенты уже могут смотреть его в разделе «Работы» и записываться прямо с ролика!</i>",
+            reply_markup=del_kb,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logging.error(f"Error saving portfolio video: {e}", exc_info=True)
+        await callback.message.edit_text(f"❌ Ошибка сохранения видео: {e}")
+
+
+@dp.callback_query(F.data.startswith("ign_v_"))
+async def callback_ignore_video(callback: types.CallbackQuery):
+    msg_id = int(callback.data.replace("ign_v_", ""))
+    pending_portfolio_videos.pop(msg_id, None)
+    await callback.message.edit_text("❌ Публикация видео отменена.")
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("del_work_"))
+async def callback_delete_work(callback: types.CallbackQuery):
+    work_id = int(callback.data.replace("del_work_", ""))
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT video_url, image_url FROM instagram_works WHERE id = ?", (work_id,))
+    row = cur.fetchone()
+    if row:
+        v_url, i_url = row
+        cur.execute("DELETE FROM instagram_works WHERE id = ?", (work_id,))
+        conn.commit()
+        for u in [v_url, i_url]:
+            if u and u.startswith("/media/"):
+                fname = u.replace("/media/", "")
+                fpath = os.path.join(PORTFOLIO_DIR, fname)
+                if os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+    conn.close()
+    await callback.message.edit_text("🗑 <b>Работа удалена из Mini App.</b>", parse_mode="HTML")
+    await callback.answer("Удалено!")
+
+
+@dp.message(Command("works"))
+async def cmd_list_works(message: types.Message):
+    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
+    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
+    if not (is_staff or is_salon_group):
+        return
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, caption, barber_name, tag FROM instagram_works ORDER BY id DESC")
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        return await message.reply("В портфолио пока нет опубликованных работ.")
+
+    text = "💈 <b>Работы в портфолио Mini App:</b>\n\n"
+    kb_list = []
+    for r in rows:
+        w_id, cap, barb, tg = r
+        text += f"• #{w_id} <b>{cap}</b> ({barb} • {tg})\n"
+        kb_list.append([InlineKeyboardButton(text=f"🗑 Удалить #{w_id} ({cap[:18]})", callback_data=f"del_work_{w_id}")])
+
+    await message.reply(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_list), parse_mode="HTML")
+
+
 async def schedule_review_poll(record_id: int, user_id: int, user_name: str, delay_seconds: int):
     await asyncio.sleep(delay_seconds)
     if not is_review_needed(record_id):
@@ -1258,10 +1444,10 @@ async def api_cancel_booking(request):
 
 
 async def api_get_portfolio(request):
-    """Возвращает живую ленту работ мастеров из Instagram."""
+    """Возвращает живую ленту работ мастеров с поддержкой нативных видео."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT id, image_url, caption, tag, barber_name, instagram_url FROM instagram_works ORDER BY id DESC")
+    cur.execute("SELECT id, image_url, caption, tag, barber_name, instagram_url, video_url FROM instagram_works ORDER BY id DESC")
     rows = cur.fetchall()
     conn.close()
     works = [
@@ -1271,7 +1457,8 @@ async def api_get_portfolio(request):
             "caption": r[2],
             "tag": r[3],
             "barber": r[4],
-            "instagram_url": r[5]
+            "instagram_url": r[5],
+            "video_url": r[6] if len(r) > 6 and r[6] else ""
         }
         for r in rows
     ]
@@ -1458,6 +1645,7 @@ async def main():
 
     static_dir = os.path.join(os.path.dirname(__file__), "static")
     app.router.add_static("/static/", path=static_dir, name="static")
+    app.router.add_static("/media/", path=PORTFOLIO_DIR, name="media")
 
     # API
     app.router.add_get("/api/slots", api_get_busy_slots)

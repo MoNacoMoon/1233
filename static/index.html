@@ -829,10 +829,12 @@
 
     .portfolio-card:active { transform: scale(0.96); }
 
-    .portfolio-card img {
+    .portfolio-card img,
+    .portfolio-card video {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
     }
 
     .portfolio-card-overlay {
@@ -1790,6 +1792,37 @@
   </div>
 
   <!-- ==========================================================================
+       MODAL: FULLSCREEN REELS VIDEO PLAYER (ПРОСМОТР РАБОТЫ + ЗАПИСЬ)
+       ========================================================================== -->
+  <div class="modal-backdrop" id="reelsModal">
+    <div class="ticket-pass" style="max-width: 360px; padding: 0; overflow: hidden; background: #0c0e12; border: 1px solid var(--border-gold); box-shadow: 0 10px 40px rgba(0,0,0,0.85);">
+      <button class="modal-close-btn" onclick="closeReelsModal()" aria-label="Закрыть" style="z-index: 10; background: rgba(0,0,0,0.6); color: #fff;">✕</button>
+      
+      <div style="position: relative; width: 100%; height: 420px; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+        <video id="reelsModalVideo" src="" playsinline webkit-playsinline loop controls style="width: 100%; height: 100%; object-fit: contain; display: block;"></video>
+        <img id="reelsModalImg" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+      </div>
+
+      <div style="padding: 16px 18px 20px; background: var(--surface-1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span id="reelsModalBarber" class="review-badge-tag" style="background: rgba(212,175,55,0.15); color: var(--gold-primary); font-size: 11px; padding: 4px 10px; border-radius: 6px;">Yakov</span>
+          <span id="reelsModalTag" style="font-size: 11px; color: var(--steel-dim); font-weight: 600;">Стрижка</span>
+        </div>
+        <h3 id="reelsModalTitle" style="font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 14px; line-height: 1.35;">Стильная стрижка</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="ticket-btn primary" id="reelsBookNowBtn" onclick="bookFromReels()" style="font-size: 14px; padding: 12px;">
+            <span>💈 Записаться на эту стрижку</span>
+          </button>
+          <a id="reelsInstaLink" href="https://www.instagram.com/daddy.barbershop.md/" target="_blank" class="ticket-btn secondary" style="display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: 13px; padding: 10px;">
+            <span>📸 Смотреть в Instagram ↗</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
        MODAL 2: POP-UP UPSELL MODAL (ВСПЛЫВАЮЩЕЕ ОКНО ДОПРОДАЖ)
        ========================================================================== -->
   <div class="modal-backdrop" id="upsellModal">
@@ -2615,7 +2648,9 @@
       autoSmartAddToCalendar();
     }
 
-    /* Dynamic Portfolio Feed Loader from Backend API */
+    let currentSelectedWork = null;
+
+    /* Dynamic Portfolio Feed Loader with Native Video Reels Support */
     async function loadPortfolioFromBackend() {
       try {
         const res = await secureFetch('/api/portfolio');
@@ -2626,12 +2661,28 @@
         const grid = document.getElementById('instagramPortfolioGrid');
         grid.innerHTML = "";
 
+        if (works.length === 0) {
+          grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 30px 10px; color: var(--steel-dim); font-size: 13px;">
+              Работы скоро появятся здесь!<br>
+              <span style="font-size: 11.5px; color: var(--gold-primary);">Следите за обновлениями салона</span>
+            </div>
+          `;
+          return;
+        }
+
         works.forEach(w => {
           const card = document.createElement('div');
           card.className = "portfolio-card";
+
+          const mediaHtml = w.video_url
+            ? `<video class="portfolio-video-thumb" src="${w.video_url}" poster="${w.image_url}" muted loop playsinline webkit-playsinline autoplay preload="metadata"></video>
+               <div class="insta-icon-badge" style="background: rgba(212,175,55,0.95); color: #000; font-weight: 800; font-size: 9px; letter-spacing: 0.5px;">🎬 REELS</div>`
+            : `<img src="${w.image_url}" alt="${w.caption}">
+               <div class="insta-icon-badge">📸</div>`;
+
           card.innerHTML = `
-            <img src="${w.image_url}" alt="${w.caption}">
-            <div class="insta-icon-badge">📸</div>
+            ${mediaHtml}
             <div class="portfolio-card-overlay">
               <span class="portfolio-card-title">${w.caption}</span>
               <span class="portfolio-card-tag">${w.barber} • ${w.tag}</span>
@@ -2639,13 +2690,61 @@
           `;
           card.addEventListener('click', () => {
             triggerHaptic('light');
-            window.open(w.instagram_url || 'https://www.instagram.com/daddy.barbershop.md/', '_blank');
+            openReelsModal(w);
           });
           grid.appendChild(card);
         });
       } catch (err) {
         console.error("Portfolio feed error:", err);
       }
+    }
+
+    function openReelsModal(w) {
+      currentSelectedWork = w;
+      const modal = document.getElementById('reelsModal');
+      const vid = document.getElementById('reelsModalVideo');
+      const img = document.getElementById('reelsModalImg');
+
+      document.getElementById('reelsModalBarber').innerText = w.barber || "Yakov";
+      document.getElementById('reelsModalTag').innerText = w.tag || "Стрижка";
+      document.getElementById('reelsModalTitle').innerText = w.caption || "Стильная стрижка";
+      document.getElementById('reelsInstaLink').href = w.instagram_url || "https://www.instagram.com/daddy.barbershop.md/";
+
+      if (w.video_url) {
+        vid.src = w.video_url;
+        vid.style.display = "block";
+        img.style.display = "none";
+        vid.currentTime = 0;
+        vid.play().catch(() => {});
+      } else {
+        vid.pause();
+        vid.style.display = "none";
+        img.src = w.image_url;
+        img.style.display = "block";
+      }
+
+      modal.classList.add('open');
+    }
+
+    function closeReelsModal() {
+      const modal = document.getElementById('reelsModal');
+      const vid = document.getElementById('reelsModalVideo');
+      if (vid) vid.pause();
+      if (modal) modal.classList.remove('open');
+    }
+
+    function bookFromReels() {
+      closeReelsModal();
+      triggerHaptic('success');
+      const barberName = currentSelectedWork ? currentSelectedWork.barber : "Yakov";
+
+      if (barberName.toLowerCase().includes("yakov") || barberName.toLowerCase().includes("яков")) {
+        selectMaster('yakov', 'Yakov', 'top', '/static/img/yakov.jpg');
+      }
+
+      // Переключаемся на первую вкладку (Запись)
+      const bookTabBtn = document.querySelectorAll('.tab-button')[0];
+      activateAppTab('viewBooking', bookTabBtn);
     }
 
     /* Reviews Section Logic */
