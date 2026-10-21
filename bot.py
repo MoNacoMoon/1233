@@ -542,7 +542,13 @@ def get_staff_menu():
         [KeyboardButton(text="📅 Расписание мастеров")],
         [KeyboardButton(text="🎬 Работы / Видео"), KeyboardButton(text="📊 Выручка за сегодня")]
     ]
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, is_persistent=True)
+    return ReplyKeyboardMarkup(
+        keyboard=kb,
+        resize_keyboard=True,
+        is_persistent=True,
+        selective=False,
+        input_field_placeholder="Панель управления Daddy Barbershop"
+    )
 
 
 @dp.message(CommandStart())
