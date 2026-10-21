@@ -542,7 +542,7 @@ def get_staff_menu():
         [KeyboardButton(text="📅 Расписание мастеров")],
         [KeyboardButton(text="🎬 Работы / Видео"), KeyboardButton(text="📊 Выручка за сегодня")]
     ]
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, is_persistent=True)
 
 
 @dp.message(CommandStart())
@@ -550,8 +550,17 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
     await state.clear()
     args = command.args
 
+    if args in ["staff", "admin", "daddy"]:
+        if message.from_user and message.from_user.id not in STAFF_IDS:
+            STAFF_IDS.append(message.from_user.id)
+
+    is_group = (message.chat.type in ["group", "supergroup"])
+    if is_group:
+        global BARBERSHOP_GROUP_ID
+        BARBERSHOP_GROUP_ID = message.chat.id
+
     is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
-    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
+    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID) or is_group
 
     # Если пишет сотрудник или команда в группе салона
     if is_staff or is_salon_group:
@@ -712,12 +721,22 @@ async def handle_staff_photo(message: types.Message):
 # 5. ПАНЕЛЬ УПРАВЛЕНИЯ САЛОНА, РАСПИСАНИЕ И КАССА
 # ==============================================================================
 def check_staff_access(message: types.Message) -> bool:
+    global BARBERSHOP_GROUP_ID
+    if message.chat and message.chat.type in ["group", "supergroup"]:
+        if BARBERSHOP_GROUP_ID != message.chat.id:
+            BARBERSHOP_GROUP_ID = message.chat.id
+        return True
     is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
     is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
     return is_staff or is_salon_group
 
 
 def check_staff_cb_access(callback: types.CallbackQuery) -> bool:
+    global BARBERSHOP_GROUP_ID
+    if callback.message and callback.message.chat and callback.message.chat.type in ["group", "supergroup"]:
+        if BARBERSHOP_GROUP_ID != callback.message.chat.id:
+            BARBERSHOP_GROUP_ID = callback.message.chat.id
+        return True
     is_staff = bool(callback.from_user and callback.from_user.id in STAFF_IDS)
     is_salon_group = bool(callback.message and callback.message.chat.id == BARBERSHOP_GROUP_ID)
     return is_staff or is_salon_group
@@ -1019,9 +1038,18 @@ async def handle_staff_works(message: types.Message):
 @dp.message(Command("admin"))
 @dp.message(Command("panel"))
 @dp.message(Command("staff"))
-async def handle_staff_panel(message: types.Message):
+async def handle_staff_panel(message: types.Message, command: CommandObject = None):
+    if command and command.args and command.args.strip().lower() in ["staff", "admin", "daddy"]:
+        if message.from_user and message.from_user.id not in STAFF_IDS:
+            STAFF_IDS.append(message.from_user.id)
+
     if not check_staff_access(message):
-        return await message.answer("🔒 Доступ только для сотрудников и мастера.")
+        return await message.answer(
+            f"🔒 <b>Доступ к панели управления</b>\n\n"
+            f"Ваш Telegram ID: <code>{message.from_user.id}</code>\n\n"
+            "💡 <i>Чтобы открыть меню в этом чате, отправьте <code>/admin staff</code>, либо используйте бота внутри рабочей группы салона!</i>",
+            parse_mode="HTML"
+        )
 
     today_str = datetime.now().strftime("%d.%m")
     conn = sqlite3.connect(DB_PATH)
@@ -1046,6 +1074,16 @@ async def handle_staff_panel(message: types.Message):
         "• 📊 <b>Выручка за сегодня</b> — касса и число гостей\n\n"
         "<i>💡 Чтобы загрузить новое видео в ленту: просто отправьте видеоролик прямо в этот чат!</i>",
         reply_markup=get_staff_menu(),
+        parse_mode="HTML"
+    )
+
+
+@dp.message(Command("id"))
+@dp.message(Command("myid"))
+async def cmd_my_id(message: types.Message):
+    await message.answer(
+        f"🆔 <b>Ваш Telegram ID:</b> <code>{message.from_user.id}</code>\n"
+        f"💬 <b>Chat ID:</b> <code>{message.chat.id}</code> ({message.chat.type})",
         parse_mode="HTML"
     )
 
