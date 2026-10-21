@@ -61,6 +61,8 @@ INSTAGRAM_URL = "https://www.instagram.com/daddy.barbershop.md/"
 
 DEFAULT_MASTER_ID = "yakov"
 DEFAULT_MASTER_NAME = "Yakov"
+ALL_BARBERS = ["Yakov", "Рувим", "Лиза"]
+SCHEDULE_SLOTS = ["10:00", "11:15", "12:30", "13:45", "15:00", "16:15", "17:30", "18:45", "20:00"]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 bot = Bot(token=BOT_TOKEN)
@@ -383,6 +385,15 @@ def save_appointment(user_id, name, phone, barber, service, date, time, extra_se
         conn.close()
         return None
 
+    # Защита от записи на заблокированный мастером слот (перерыв)
+    cur.execute("""
+        SELECT id FROM blocked_slots
+        WHERE (barber = ? OR barber = 'all') AND booking_date = ? AND booking_time = ?
+    """, (barber, date, time))
+    if cur.fetchone():
+        conn.close()
+        return None
+
     cur.execute("""
         INSERT INTO appointments (
             user_id, user_name, phone, barber, service, booking_date, booking_time,
@@ -526,10 +537,33 @@ def get_main_menu():
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 
+def get_staff_menu():
+    kb = [
+        [KeyboardButton(text="📅 Расписание мастеров")],
+        [KeyboardButton(text="🎬 Работы / Видео"), KeyboardButton(text="📊 Выручка за сегодня")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject, state: FSMContext):
     await state.clear()
     args = command.args
+
+    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
+    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
+
+    # Если пишет сотрудник или команда в группе салона
+    if is_staff or is_salon_group:
+        return await message.answer(
+            f"💈 <b>Панель управления Daddy Barbershop</b>\n\n"
+            "Используйте кнопки меню внизу для работы с расписанием и видео:\n"
+            "• 📅 <b>Расписание мастеров</b> — записи, свободные слоты и перерывы\n"
+            "• 🎬 <b>Работы / Видео</b> — управление видео в Mini App\n"
+            "• 📊 <b>Выручка за сегодня</b> — касса и количество клиентов",
+            reply_markup=get_staff_menu(),
+            parse_mode="HTML"
+        )
 
     # Поддержка NFC-меток у кресла мастера: /start nfc_yakov
     if args and (args.startswith("nfc_") or args.startswith("review_")):
@@ -675,129 +709,595 @@ async def handle_staff_photo(message: types.Message):
 
 
 # ==============================================================================
-# 5. ПАНЕЛЬ УПРАВЛЕНИЯ /admin
+# 5. ПАНЕЛЬ УПРАВЛЕНИЯ САЛОНА, РАСПИСАНИЕ И КАССА
 # ==============================================================================
-@dp.message(Command("admin"))
-async def cmd_admin(message: types.Message):
-    if not is_admin(message.from_user.id) and message.chat.id != BARBERSHOP_GROUP_ID:
-        return await message.answer("🔒 Доступ только для сотрудников и мастера.")
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Расписание на сегодня", callback_data="adm_schedule_today")],
-        [InlineKeyboardButton(text="💰 Выручка за сегодня", callback_data="adm_revenue_today")],
-        [InlineKeyboardButton(text="🔒 Закрыть слот (Перерыв)", callback_data="adm_block_slot")],
-        [InlineKeyboardButton(text="📊 Статистика записей Yakov", callback_data="adm_pilot_stats")]
-    ])
-    await message.answer("⚡ <b>Панель управления Daddy Barbershop</b>\nВыберите действие:", reply_markup=kb, parse_mode="HTML")
+def check_staff_access(message: types.Message) -> bool:
+    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
+    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
+    return is_staff or is_salon_group
 
 
-@dp.callback_query(F.data == "adm_schedule_today")
-async def adm_schedule_today_handler(callback: types.CallbackQuery):
+def check_staff_cb_access(callback: types.CallbackQuery) -> bool:
+    is_staff = bool(callback.from_user and callback.from_user.id in STAFF_IDS)
+    is_salon_group = bool(callback.message and callback.message.chat.id == BARBERSHOP_GROUP_ID)
+    return is_staff or is_salon_group
+
+
+def get_upcoming_dates(count: int = 3):
+    today = datetime.now()
+    return [(today + timedelta(days=i)).strftime("%d.%m") for i in range(count)]
+
+
+def get_schedule_all_today_keyboard():
     today_str = datetime.now().strftime("%d.%m")
+    buttons = [
+        [
+            InlineKeyboardButton(text="👤 Yakov", callback_data=f"sch_v_Yakov_{today_str}"),
+            InlineKeyboardButton(text="👤 Рувим", callback_data=f"sch_v_Рувим_{today_str}"),
+            InlineKeyboardButton(text="👤 Лиза", callback_data=f"sch_v_Лиза_{today_str}")
+        ],
+        [
+            InlineKeyboardButton(text="📊 Выручка за сегодня", callback_data="adm_rev_refresh"),
+            InlineKeyboardButton(text="🔄 Обновить", callback_data="sch_all_today")
+        ]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_schedule_master_keyboard():
+    today_str = datetime.now().strftime("%d.%m")
+    buttons = [
+        [InlineKeyboardButton(text=f"💈 Все мастера на сегодня ({today_str})", callback_data="sch_all_today")],
+        [
+            InlineKeyboardButton(text="👤 Yakov", callback_data=f"sch_v_Yakov_{today_str}"),
+            InlineKeyboardButton(text="👤 Рувим", callback_data=f"sch_v_Рувим_{today_str}"),
+            InlineKeyboardButton(text="👤 Лиза", callback_data=f"sch_v_Лиза_{today_str}")
+        ],
+        [InlineKeyboardButton(text="❌ Закрыть", callback_data="sch_close")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_schedule_view_keyboard(barber: str, current_date: str):
+    upcoming = get_upcoming_dates(3)
+    date_buttons = []
+    for i, d in enumerate(upcoming):
+        is_active = (d == current_date)
+        prefix = "📍 " if is_active else ""
+        if i == 0:
+            lbl = f"{prefix}Сегодня ({d})"
+        elif i == 1:
+            lbl = f"{prefix}Завтра ({d})"
+        else:
+            lbl = f"{prefix}{d}"
+        date_buttons.append(InlineKeyboardButton(text=lbl, callback_data=f"sch_v_{barber}_{d}"))
+
+    buttons = [
+        date_buttons,
+        [
+            InlineKeyboardButton(text="🔒 Закрыть перерыв", callback_data=f"sch_blk_{barber}_{current_date}"),
+            InlineKeyboardButton(text="🔓 Открыть слот", callback_data=f"sch_unblk_{barber}_{current_date}")
+        ],
+        [
+            InlineKeyboardButton(text="💈 Все мастера", callback_data="sch_all_today"),
+            InlineKeyboardButton(text="👤 Сменить мастера", callback_data="sch_choose_master"),
+            InlineKeyboardButton(text="🔄 Обновить", callback_data=f"sch_v_{barber}_{current_date}")
+        ]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_revenue_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📅 График всех мастеров", callback_data="sch_all_today")],
+        [InlineKeyboardButton(text="🔄 Обновить кассу", callback_data="adm_rev_refresh")]
+    ])
+
+
+def render_master_schedule_text(barber: str, date_str: str) -> str:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, booking_time, user_name, phone, service, total_price, extra_services
+        SELECT booking_time, user_name, phone, service, total_price, extra_services, confirmed
         FROM appointments
-        WHERE booking_date = ? AND barber = ? AND status = 'active'
+        WHERE barber = ? AND booking_date = ? AND status = 'active'
         ORDER BY booking_time ASC
-    """, (today_str, DEFAULT_MASTER_NAME))
-    rows = cur.fetchall()
+    """, (barber, date_str))
+    app_rows = cur.fetchall()
+    app_map = {r[0]: r for r in app_rows}
+
+    cur.execute("""
+        SELECT booking_time, reason
+        FROM blocked_slots
+        WHERE (barber = ? OR barber = 'all') AND booking_date = ?
+    """, (barber, date_str))
+    blk_map = {r[0]: r[1] for r in cur.fetchall()}
     conn.close()
 
-    if not rows:
-        await callback.message.edit_text(f"📋 На сегодня ({today_str}) записей к {DEFAULT_MASTER_NAME} пока нет.")
-        return await callback.answer()
+    total_clients = len(app_rows)
+    total_rev = sum((r[4] or 0) for r in app_rows)
 
-    text = f"📋 <b>Расписание на сегодня ({today_str}) • Мастер {DEFAULT_MASTER_NAME}:</b>\n\n"
-    for r in rows:
-        extras = f" (+{r[6]})" if r[6] else ""
-        price = f" — <b>{r[5]} руб</b>" if r[5] else ""
-        text += (
-            f"⏰ <b>{r[1]}</b> — {r[2]} (<code>{r[3]}</code>)\n"
-            f"   ✂️ {r[4]}{extras}{price}\n\n"
-        )
+    lines = [
+        f"📅 <b>Расписание мастера {barber} • {date_str}</b>",
+        "━━━━━━━━━━━━━━━━━━━━━"
+    ]
 
-    await callback.message.edit_text(text, parse_mode="HTML")
-    await callback.answer()
+    for slot in SCHEDULE_SLOTS:
+        if slot in app_map:
+            app = app_map[slot]
+            name = html.escape(app[1] or "Клиент")
+            phone = app[2] or ""
+            service = html.escape(app[3] or "Стрижка")
+            price = app[4] or 0
+            extras = f" (+{html.escape(app[5])})" if app[5] else ""
+            status_icon = "✅" if app[6] else "⏳"
+            lines.append(f"🔴 <b>{slot}</b> — {name} (<code>{phone}</code>)")
+            lines.append(f"   ✂️ {service}{extras} • <b>{price} руб</b> {status_icon}")
+        elif slot in blk_map:
+            reason = blk_map[slot] or "Перерыв"
+            lines.append(f"⛔ <b>{slot}</b> — [ПЕРЕРЫВ] <i>({html.escape(reason)})</i>")
+        else:
+            lines.append(f"🟢 <b>{slot}</b> — Свободно")
+
+    lines.append("━━━━━━━━━━━━━━━━━━━━━")
+    lines.append(f"👥 Записей: <b>{total_clients}</b> | 💰 Ожидаемая касса: <b>{total_rev} руб</b>")
+    lines.append("<i>💡 Статус: ✅ подтвержден, ⏳ ожидает визита</i>")
+    return "\n".join(lines)
 
 
-@dp.callback_query(F.data == "adm_revenue_today")
-async def adm_revenue_today_handler(callback: types.CallbackQuery):
+def render_all_masters_today_text(date_str: str) -> str:
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    lines = [
+        f"📅 <b>График всех мастеров на сегодня ({date_str}):</b>",
+        "━━━━━━━━━━━━━━━━━━━━━"
+    ]
+
+    grand_total_rev = 0
+    grand_total_clients = 0
+
+    for barber in ALL_BARBERS:
+        cur.execute("""
+            SELECT booking_time, user_name, phone, service, total_price, confirmed
+            FROM appointments
+            WHERE barber = ? AND booking_date = ? AND status = 'active'
+            ORDER BY booking_time ASC
+        """, (barber, date_str))
+        app_rows = cur.fetchall()
+        app_map = {r[0]: r for r in app_rows}
+
+        cur.execute("""
+            SELECT booking_time, reason
+            FROM blocked_slots
+            WHERE (barber = ? OR barber = 'all') AND booking_date = ?
+        """, (barber, date_str))
+        blk_map = {r[0]: r[1] for r in cur.fetchall()}
+
+        b_rev = sum((r[4] or 0) for r in app_rows)
+        grand_total_rev += b_rev
+        grand_total_clients += len(app_rows)
+
+        lines.append(f"\n👤 <b>Мастер {barber}:</b> ({len(app_rows)} записей, {b_rev} руб)")
+
+        has_any = False
+        for slot in SCHEDULE_SLOTS:
+            if slot in app_map:
+                has_any = True
+                r = app_map[slot]
+                name = html.escape(r[1] or "Клиент")
+                srv = html.escape(r[3] or "Стрижка")
+                lines.append(f"  • 🔴 <b>{slot}</b> — {name} | {srv} ({r[4]} руб)")
+            elif slot in blk_map:
+                has_any = True
+                lines.append(f"  • ⛔ <b>{slot}</b> — [Перерыв]")
+
+        if not has_any:
+            lines.append("  • <i>Все слоты свободны 🟢</i>")
+
+    conn.close()
+    lines.append("\n━━━━━━━━━━━━━━━━━━━━━")
+    lines.append(f"📊 <b>ИТОГО ЗА ДЕНЬ:</b> <b>{grand_total_clients}</b> чел. | <b>{grand_total_rev} руб</b>")
+    lines.append("<i>Нажмите на мастера ниже для подробного графика слотов:</i>")
+    return "\n".join(lines)
+
+
+def render_revenue_today_text() -> str:
     today_str = datetime.now().strftime("%d.%m")
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+
     cur.execute("""
         SELECT COUNT(*), SUM(total_price)
         FROM appointments
-        WHERE booking_date = ? AND barber = ? AND status = 'active'
-    """, (today_str, DEFAULT_MASTER_NAME))
-    count, total = cur.fetchone()
+        WHERE booking_date = ? AND status = 'active'
+    """, (today_str,))
+    grand_count, grand_total = cur.fetchone()
+    grand_count = grand_count or 0
+    grand_total = grand_total or 0
+
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM appointments
+        WHERE booking_date = ? AND status = 'active' AND extra_services != '' AND extra_services IS NOT NULL
+    """, (today_str,))
+    upsell_count = cur.fetchone()[0] or 0
+
+    lines = [
+        f"📊 <b>Касса и выручка за сегодня ({today_str}):</b>",
+        "━━━━━━━━━━━━━━━━━━━━━",
+        f"💰 <b>Общая выручка:</b> <b>{grand_total} руб</b>",
+        f"👥 <b>Всего клиентов:</b> <b>{grand_count} чел</b>",
+        f"💎 <b>Записей с доп. услугами:</b> <b>{upsell_count}</b>",
+        "",
+        "<b>Разбивка по мастерам:</b>"
+    ]
+
+    for barber in ALL_BARBERS:
+        cur.execute("""
+            SELECT COUNT(*), SUM(total_price)
+            FROM appointments
+            WHERE barber = ? AND booking_date = ? AND status = 'active'
+        """, (barber, today_str))
+        b_count, b_total = cur.fetchone()
+        b_count = b_count or 0
+        b_total = b_total or 0
+        lines.append(f"• 👤 <b>{barber}:</b> {b_count} зап. — <b>{b_total} руб</b>")
+
     conn.close()
-
-    total = total or 0
-    text = (
-        f"💰 <b>Касса на сегодня ({today_str}) • {DEFAULT_MASTER_NAME}:</b>\n\n"
-        f"Записей: <b>{count}</b>\n"
-        f"Ожидаемая выручка: <b>{total} руб</b>"
-    )
-    await callback.message.edit_text(text, parse_mode="HTML")
-    await callback.answer()
+    lines.append("━━━━━━━━━━━━━━━━━━━━━")
+    return "\n".join(lines)
 
 
-@dp.callback_query(F.data == "adm_pilot_stats")
-async def adm_pilot_stats_handler(callback: types.CallbackQuery):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*), SUM(total_price) FROM appointments WHERE barber = ? AND status = 'active'", (DEFAULT_MASTER_NAME,))
-    active_count, active_total = cur.fetchone()
-    cur.execute("SELECT COUNT(*) FROM appointments WHERE barber = ? AND extra_services != '' AND extra_services IS NOT NULL", (DEFAULT_MASTER_NAME,))
-    upsell_count = cur.fetchone()[0]
-    conn.close()
-
-    active_total = active_total or 0
-    avg_check = round(active_total / active_count) if active_count else 0
-    upsell_percent = round((upsell_count / active_count) * 100) if active_count else 0
-
-    text = (
-        f"📊 <b>Статистика записей мастера {DEFAULT_MASTER_NAME}:</b>\n\n"
-        f"Всего активных записей: <b>{active_count}</b>\n"
-        f"Общая выручка: <b>{active_total} руб</b>\n"
-        f"Средний чек: <b>{avg_check} руб</b>\n"
-        f"Записей с допродажами (Upsell): <b>{upsell_count} ({upsell_percent}%)</b>\n\n"
-        "<i>Mini App экономит время администратора и увеличивает средний чек!</i>"
-    )
-    await callback.message.edit_text(text, parse_mode="HTML")
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "adm_block_slot")
-async def adm_block_slot_handler(callback: types.CallbackQuery):
+# ------------------------------------------------------------------------------
+# Команды и кнопки меню персонала
+# ------------------------------------------------------------------------------
+@dp.message(Command("schedule"))
+@dp.message(Command("raspisanie"))
+@dp.message(F.text.in_([
+    "📅 Расписание мастеров",
+    "Расписание мастеров",
+    "расписание мастеров",
+    "📅 Расписание",
+    "Расписание",
+    "расписание"
+]))
+async def handle_staff_schedule(message: types.Message):
+    if not check_staff_access(message):
+        return
     today_str = datetime.now().strftime("%d.%m")
-    slots = ["10:00", "11:15", "12:30", "13:45", "15:00", "16:15", "17:30", "18:45", "20:00"]
-    buttons = []
-    for s in slots:
-        buttons.append([InlineKeyboardButton(text=f"🔒 Блок {s} (сегодня)", callback_data=f"do_block_{s}_{today_str}")])
-    buttons.append([InlineKeyboardButton(text="« Назад", callback_data="adm_back")])
+    text = render_all_masters_today_text(today_str)
+    kb = get_schedule_all_today_keyboard()
+    await message.answer(text, reply_markup=kb, parse_mode="HTML")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await callback.message.edit_text("Выберите слот на сегодня для закрытия перерывом:", reply_markup=kb)
+
+@dp.message(Command("revenue"))
+@dp.message(Command("kassa"))
+@dp.message(F.text.in_([
+    "📊 Выручка за сегодня",
+    "Выручка за сегодня",
+    "выручка за сегодня",
+    "📊 Выручка",
+    "Выручка",
+    "выручка",
+    "Касса за сегодня",
+    "касса за сегодня",
+    "Касса",
+    "касса"
+]))
+async def handle_staff_revenue(message: types.Message):
+    if not check_staff_access(message):
+        return
+    text = render_revenue_today_text()
+    kb = get_revenue_keyboard()
+    await message.answer(text, reply_markup=kb, parse_mode="HTML")
+
+
+@dp.message(Command("works"))
+@dp.message(Command("portfolio"))
+@dp.message(F.text.in_([
+    "🎬 Работы / Видео",
+    "Работы / Видео",
+    "работы / видео",
+    "🎬 Работы",
+    "Работы",
+    "работы",
+    "💈 Работы",
+    "Портфолио",
+    "портфолио",
+    "Наши работы",
+    "наши работы",
+    "Видео",
+    "видео"
+]))
+async def handle_staff_works(message: types.Message):
+    if not check_staff_access(message):
+        return
+    await show_works_management(message)
+
+
+@dp.message(Command("admin"))
+@dp.message(Command("panel"))
+@dp.message(Command("staff"))
+async def handle_staff_panel(message: types.Message):
+    if not check_staff_access(message):
+        return await message.answer("🔒 Доступ только для сотрудников и мастера.")
+
+    today_str = datetime.now().strftime("%d.%m")
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM instagram_works")
+    works_count = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM appointments WHERE booking_date = ? AND status = 'active'", (today_str,))
+    today_count = cur.fetchone()[0]
+    conn.close()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"📅 График на сегодня ({today_count} зап.)", callback_data="sch_all_today")],
+        [InlineKeyboardButton(text=f"🎬 Работы в Mini App ({works_count})", callback_data="show_admin_works")],
+        [InlineKeyboardButton(text="📊 Выручка за сегодня", callback_data="adm_rev_refresh")]
+    ])
+
+    await message.answer(
+        "💈 <b>Панель управления Daddy Barbershop</b>\n\n"
+        "Используйте кнопки меню внизу чата для быстрого доступа:\n"
+        "• 📅 <b>Расписание мастеров</b> — график записей, перерывы и слоты\n"
+        "• 🎬 <b>Работы / Видео</b> — удаление и добавление видео в Mini App\n"
+        "• 📊 <b>Выручка за сегодня</b> — касса и число гостей\n\n"
+        "<i>💡 Чтобы загрузить новое видео в ленту: просто отправьте видеоролик прямо в этот чат!</i>",
+        reply_markup=get_staff_menu(),
+        parse_mode="HTML"
+    )
+
+
+# ------------------------------------------------------------------------------
+# Callback обработчики расписания и кассы
+# ------------------------------------------------------------------------------
+@dp.callback_query(F.data == "sch_all_today")
+async def cb_sch_all_today(callback: types.CallbackQuery):
+    if not check_staff_cb_access(callback):
+        return await callback.answer("🔒 Доступ только для сотрудников.", show_alert=True)
+    today_str = datetime.now().strftime("%d.%m")
+    text = render_all_masters_today_text(today_str)
+    kb = get_schedule_all_today_keyboard()
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        pass
     await callback.answer()
 
 
-@dp.callback_query(F.data.startswith("do_block_"))
-async def do_block_slot_callback(callback: types.CallbackQuery):
+@dp.callback_query(F.data == "sch_choose_master")
+async def cb_sch_choose_master(callback: types.CallbackQuery):
+    if not check_staff_cb_access(callback):
+        return await callback.answer("🔒 Доступ только для сотрудников.", show_alert=True)
+    try:
+        await callback.message.edit_text(
+            "📅 <b>Расписание мастеров Daddy Barbershop</b>\n\n"
+            "Выберите мастера для просмотра подробного расписания или откройте общий график:",
+            reply_markup=get_schedule_master_keyboard(),
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("sch_v_"))
+async def cb_sch_view_master(callback: types.CallbackQuery):
+    if not check_staff_cb_access(callback):
+        return await callback.answer("🔒 Доступ только для сотрудников.", show_alert=True)
+
     parts = callback.data.split("_")
-    slot_time = parts[2]
-    slot_date = parts[3]
+    barber = parts[2]
+    date_str = parts[3]
+
+    text = render_master_schedule_text(barber, date_str)
+    kb = get_schedule_view_keyboard(barber, date_str)
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("sch_blk_"))
+async def cb_sch_block_menu(callback: types.CallbackQuery):
+    if not check_staff_cb_access(callback):
+        return await callback.answer("🔒 Доступ только для сотрудников.", show_alert=True)
+
+    parts = callback.data.split("_")
+    barber = parts[2]
+    date_str = parts[3]
+
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("INSERT INTO blocked_slots (barber, booking_date, booking_time, reason) VALUES (?, ?, ?, ?)", (DEFAULT_MASTER_NAME, slot_date, slot_time, "Перерыв мастера"))
+    cur.execute("SELECT booking_time FROM appointments WHERE barber = ? AND booking_date = ? AND status = 'active'", (barber, date_str))
+    booked = {r[0] for r in cur.fetchall()}
+    cur.execute("SELECT booking_time FROM blocked_slots WHERE (barber = ? OR barber = 'all') AND booking_date = ?", (barber, date_str))
+    blocked = {r[0] for r in cur.fetchall()}
+    conn.close()
+
+    avail = [s for s in SCHEDULE_SLOTS if s not in booked and s not in blocked]
+    if not avail:
+        return await callback.answer("Все доступные слоты уже заняты или закрыты.", show_alert=True)
+
+    rows = []
+    current_row = []
+    for s in avail:
+        current_row.append(InlineKeyboardButton(text=f"🔒 {s}", callback_data=f"sch_doblk_{barber}_{date_str}_{s}"))
+        if len(current_row) == 3:
+            rows.append(current_row)
+            current_row = []
+    if current_row:
+        rows.append(current_row)
+
+    rows.append([InlineKeyboardButton(text="« Назад в расписание", callback_data=f"sch_v_{barber}_{date_str}")])
+
+    try:
+        await callback.message.edit_text(
+            f"🔒 <b>Закрыть перерыв: {barber} • {date_str}</b>\n\n"
+            "Выберите свободный слот, чтобы закрыть его для записи клиентов в приложении:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("sch_doblk_"))
+async def cb_sch_do_block(callback: types.CallbackQuery):
+    if not check_staff_cb_access(callback):
+        return await callback.answer("🔒 Доступ только для сотрудников.", show_alert=True)
+
+    parts = callback.data.split("_")
+    barber = parts[2]
+    date_str = parts[3]
+    slot_time = parts[4]
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO blocked_slots (barber, booking_date, booking_time, reason)
+        VALUES (?, ?, ?, 'Перерыв мастера')
+    """, (barber, date_str, slot_time))
     conn.commit()
     conn.close()
 
-    await callback.message.edit_text(f"✅ Слот <b>{slot_time}</b> на дату {slot_date} успешно закрыт!", parse_mode="HTML")
-    await callback.answer("Слот заблокирован!")
+    text = render_master_schedule_text(barber, date_str)
+    kb = get_schedule_view_keyboard(barber, date_str)
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        pass
+    await callback.answer(f"✅ Слот {slot_time} закрыт на перерыв!")
+
+
+@dp.callback_query(F.data.startswith("sch_unblk_"))
+async def cb_sch_unblock_menu(callback: types.CallbackQuery):
+    if not check_staff_cb_access(callback):
+        return await callback.answer("🔒 Доступ только для сотрудников.", show_alert=True)
+
+    parts = callback.data.split("_")
+    barber = parts[2]
+    date_str = parts[3]
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT booking_time, reason FROM blocked_slots
+        WHERE (barber = ? OR barber = 'all') AND booking_date = ?
+    """, (barber, date_str))
+    blocked = cur.fetchall()
+    conn.close()
+
+    if not blocked:
+        return await callback.answer("На эту дату нет заблокированных слотов.", show_alert=True)
+
+    rows = []
+    current_row = []
+    for s, reason in blocked:
+        current_row.append(InlineKeyboardButton(text=f"🔓 Открыть {s}", callback_data=f"sch_dounblk_{barber}_{date_str}_{s}"))
+        if len(current_row) == 2:
+            rows.append(current_row)
+            current_row = []
+    if current_row:
+        rows.append(current_row)
+
+    rows.append([InlineKeyboardButton(text="« Назад в расписание", callback_data=f"sch_v_{barber}_{date_str}")])
+
+    try:
+        await callback.message.edit_text(
+            f"🔓 <b>Снять перерыв: {barber} • {date_str}</b>\n\n"
+            "Выберите слот, который снова станет доступен для онлайн-записи клиентов:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("sch_dounblk_"))
+async def cb_sch_do_unblock(callback: types.CallbackQuery):
+    if not check_staff_cb_access(callback):
+        return await callback.answer("🔒 Доступ только для сотрудников.", show_alert=True)
+
+    parts = callback.data.split("_")
+    barber = parts[2]
+    date_str = parts[3]
+    slot_time = parts[4]
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        DELETE FROM blocked_slots
+        WHERE (barber = ? OR barber = 'all') AND booking_date = ? AND booking_time = ?
+    """, (barber, date_str, slot_time))
+    conn.commit()
+    conn.close()
+
+    text = render_master_schedule_text(barber, date_str)
+    kb = get_schedule_view_keyboard(barber, date_str)
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        pass
+    await callback.answer(f"✅ Слот {slot_time} снова доступен для записи!")
+
+
+@dp.callback_query(F.data == "sch_close")
+async def cb_sch_close(callback: types.CallbackQuery):
+    try:
+        await callback.message.delete()
+    except Exception:
+        await callback.message.edit_text("Расписание закрыто.")
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "adm_rev_refresh")
+async def cb_adm_rev_refresh(callback: types.CallbackQuery):
+    if not check_staff_cb_access(callback):
+        return await callback.answer("🔒 Доступ только для сотрудников.", show_alert=True)
+
+    text = render_revenue_today_text()
+    kb = get_revenue_keyboard()
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        pass
+    await callback.answer("Касса обновлена!")
+
+
+# ------------------------------------------------------------------------------
+# Совместимость со старыми кнопками
+# ------------------------------------------------------------------------------
+@dp.callback_query(F.data == "adm_schedule_today")
+async def adm_legacy_schedule(callback: types.CallbackQuery):
+    await cb_sch_all_today(callback)
+
+
+@dp.callback_query(F.data == "adm_revenue_today")
+async def adm_legacy_revenue(callback: types.CallbackQuery):
+    await cb_adm_rev_refresh(callback)
+
+
+@dp.callback_query(F.data == "adm_block_slot")
+async def adm_legacy_block(callback: types.CallbackQuery):
+    today_str = datetime.now().strftime("%d.%m")
+    callback.data = f"sch_blk_{DEFAULT_MASTER_NAME}_{today_str}"
+    await cb_sch_block_menu(callback)
+
+
+@dp.callback_query(F.data == "adm_back")
+async def adm_legacy_back(callback: types.CallbackQuery):
+    await cb_sch_all_today(callback)
+
+
+@dp.callback_query(F.data == "adm_today_stub")
+async def adm_legacy_today_stub(callback: types.CallbackQuery):
+    await cb_sch_all_today(callback)
 
 
 # ==============================================================================
@@ -891,7 +1391,10 @@ async def process_new_booking(data, from_user=None):
     )
     staff_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Отзыв взят на месте", callback_data=f"adm_revdone_{rec_id}")],
-        [InlineKeyboardButton(text="🎬 Работы в приложении", callback_data="show_admin_works")]
+        [
+            InlineKeyboardButton(text="📅 График на сегодня", callback_data="sch_all_today"),
+            InlineKeyboardButton(text="🎬 Работы / Видео", callback_data="show_admin_works")
+        ]
     ])
 
     target = BARBERSHOP_GROUP_ID if BARBERSHOP_GROUP_ID else STAFF_IDS[0]
@@ -1204,46 +1707,6 @@ async def callback_delete_work(callback: types.CallbackQuery):
     await callback.answer("Удалено!")
 
 
-@dp.message(Command("works"))
-@dp.message(Command("portfolio"))
-@dp.message(F.text.lower().in_(["работы", "💈 работы", "портфолио", "наши работы", "🎬 работы"]))
-async def cmd_list_works(message: types.Message):
-    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
-    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
-    if not (is_staff or is_salon_group):
-        return
-    await show_works_management(message)
-
-
-@dp.message(Command("admin"))
-@dp.message(Command("panel"))
-async def cmd_salon_panel(message: types.Message):
-    is_staff = bool(message.from_user and message.from_user.id in STAFF_IDS)
-    is_salon_group = (message.chat.id == BARBERSHOP_GROUP_ID)
-    if not (is_staff or is_salon_group):
-        return
-
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM instagram_works")
-    works_count = cur.fetchone()[0]
-    today_str = datetime.now().strftime("%d.%m")
-    cur.execute("SELECT COUNT(*) FROM appointments WHERE booking_date = ? AND status = 'active'", (today_str,))
-    today_count = cur.fetchone()[0]
-    conn.close()
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"🎬 Работы в Mini App ({works_count})", callback_data="show_admin_works")],
-        [InlineKeyboardButton(text=f"📅 Записей на сегодня: {today_count}", callback_data="adm_today_stub")]
-    ])
-
-    await message.reply(
-        "💈 <b>ПАНЕЛЬ УПРАВЛЕНИЯ DADDY BARBERSHOP</b>\n\n"
-        "• Отправьте видео в этот чат — бот спросит название и добавит ролик в Mini App.\n"
-        "• Нажмите <b>«Работы в Mini App»</b> ниже, чтобы посмотреть и удалить работы.",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
 
 
 async def schedule_review_poll(record_id: int, user_id: int, user_name: str, delay_seconds: int):
