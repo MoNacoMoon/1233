@@ -8,6 +8,7 @@ import os
 import re
 import sqlite3
 import time
+import uuid
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl
 
@@ -62,7 +63,11 @@ INSTAGRAM_URL = "https://www.instagram.com/daddy.barbershop.md/"
 DEFAULT_MASTER_ID = "yakov"
 DEFAULT_MASTER_NAME = "Yakov"
 ALL_BARBERS = ["Yakov", "Рувим", "Лиза"]
-SCHEDULE_SLOTS = ["10:00", "11:15", "12:30", "13:45", "15:00", "16:15", "17:30", "18:45", "20:00"]
+SCHEDULE_SLOTS = [
+    "09:00", "09:40", "10:20", "11:00", "11:40", "12:20", "13:00", "13:40",
+    "14:20", "15:00", "15:40", "16:20", "17:00", "17:40", "18:20", "19:00",
+    "19:40", "20:20"
+]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 bot = Bot(token=BOT_TOKEN)
@@ -178,12 +183,20 @@ def clean_input(text: str, max_length: int = 100, allow_empty: bool = True) -> s
     return cleaned[:max_length]
 
 
-def validate_phone(phone: str) -> str:
-    """Валидация и фильтрация телефонного номера."""
-    if not phone:
-        return "Не указан"
-    cleaned = re.sub(r"[^\d+\-()\s]", "", str(phone)).strip()
-    return cleaned[:30]
+def validate_phone(phone: str):
+    """Валидация телефона: опционально, но если передан — строго +373 и 8 цифр."""
+    if not phone or str(phone).strip() in ("", "Не указан", "+373", "+373 "):
+        return ""
+    digits = re.sub(r"\D", "", str(phone))
+    if digits.startswith("373"):
+        digits = digits[3:]
+    elif digits.startswith("0"):
+        digits = digits[1:]
+    if len(digits) == 0:
+        return ""
+    if len(digits) != 8:
+        return None
+    return f"+373 {digits[:3]} {digits[3:6]}-{digits[6:]}"
 
 
 @web.middleware
@@ -337,6 +350,39 @@ def init_db():
 
     # Отзывы клиентов начинаются с чистого листа (только реальные отзывы от клиентов)
 
+    try:
+        cur.execute("ALTER TABLE appointments ADD COLUMN source TEXT DEFAULT 'online'")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE appointments ADD COLUMN duration INTEGER DEFAULT 40")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE blocked_slots ADD COLUMN duration INTEGER DEFAULT 40")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("SELECT COUNT(*) FROM appointments WHERE booking_date = '24.10'")
+        count_24 = cur.fetchone()[0]
+        bundled_db = os.path.join(os.path.dirname(__file__), "barbershop.db")
+        if count_24 == 0 and os.path.exists(bundled_db) and os.path.abspath(bundled_db) != os.path.abspath(DB_PATH):
+            local_conn = sqlite3.connect(bundled_db)
+            local_cur = local_conn.cursor()
+            local_cur.execute("SELECT user_id, user_name, phone, barber, service, booking_date, booking_time, status, extra_services, total_price, confirmed, source, duration FROM appointments WHERE booking_date IN ('23.10', '24.10')")
+            rows = local_cur.fetchall()
+            cur.executemany("INSERT INTO appointments (user_id, user_name, phone, barber, service, booking_date, booking_time, status, extra_services, total_price, confirmed, source, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+
+            local_cur.execute("SELECT barber, booking_date, booking_time, reason, duration FROM blocked_slots WHERE booking_date IN ('23.10', '24.10')")
+            b_rows = local_cur.fetchall()
+            cur.executemany("INSERT INTO blocked_slots (barber, booking_date, booking_time, reason, duration) VALUES (?, ?, ?, ?, ?)", b_rows)
+            local_conn.close()
+    except Exception as e:
+        logging.warning(f"Demo sync: {e}")
+
     conn.commit()
     conn.close()
 
@@ -373,34 +419,54 @@ def get_client_profile(user_id: int):
     return {"visits_count": visits_count}
 
 
-def save_appointment(user_id, name, phone, barber, service, date, time, extra_services="", total_price=0):
+def check_time_overlap(time1_str: str, dur1: int, time2_str: str, dur2: int) -> bool:
+    try:
+        h1, m1 = map(int, time1_str.split(':'))
+        s1 = h1 * 60 + m1
+        e1 = s1 + dur1
+
+        h2, m2 = map(int, time2_str.split(':'))
+        s2 = h2 * 60 + m2
+        e2 = s2 + dur2
+
+        return max(s1, s2) < min(e1, e2)
+    except Exception:
+        return time1_str == time2_str
+
+
+def save_appointment(user_id, name, phone, barber, service, date, time, extra_services="", total_price=0, source=None, duration=40):
+    if not source:
+        source = "online" if (user_id and user_id > 0) else "manual"
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    # Защита от Double-Booking (гонки запросов при одновременной записи на один слот)
-    cur.execute("""
-        SELECT id FROM appointments 
-        WHERE barber = ? AND booking_date = ? AND booking_time = ? AND status = 'active'
-    """, (barber, date, time))
-    if cur.fetchone():
-        conn.close()
-        return None
 
-    # Защита от записи на заблокированный мастером слот (перерыв)
+    # Защита от пересечения с существующими активными записями
     cur.execute("""
-        SELECT id FROM blocked_slots
-        WHERE (barber = ? OR barber = 'all') AND booking_date = ? AND booking_time = ?
-    """, (barber, date, time))
-    if cur.fetchone():
-        conn.close()
-        return None
+        SELECT booking_time, COALESCE(duration, 40) FROM appointments 
+        WHERE barber = ? AND booking_date = ? AND status = 'active'
+    """, (barber, date))
+    for ex_time, ex_dur in cur.fetchall():
+        if check_time_overlap(time, duration, ex_time, ex_dur or 40):
+            conn.close()
+            return None
+
+    # Защита от пересечения с заблокированными мастером слотами (перерывами)
+    cur.execute("""
+        SELECT booking_time, COALESCE(duration, 40) FROM blocked_slots
+        WHERE (barber = ? OR barber = 'all') AND booking_date = ?
+    """, (barber, date))
+    for ex_time, ex_dur in cur.fetchall():
+        if check_time_overlap(time, duration, ex_time, ex_dur or 40):
+            conn.close()
+            return None
 
     cur.execute("""
         INSERT INTO appointments (
             user_id, user_name, phone, barber, service, booking_date, booking_time,
-            extra_services, total_price, status
+            extra_services, total_price, status, source, duration
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-    """, (user_id, name, phone, barber, service, date, time, extra_services, total_price))
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+    """, (user_id, name, phone, barber, service, date, time, extra_services, total_price, source, duration))
     conn.commit()
     rec_id = cur.lastrowid
     conn.close()
@@ -412,24 +478,34 @@ def get_booked_times(barber: str, date_str: str):
     cur = conn.cursor()
     if barber == "Любой мастер":
         cur.execute("""
-            SELECT booking_time FROM appointments 
+            SELECT booking_time, COALESCE(duration, 40) FROM appointments 
             WHERE booking_date = ? AND status = 'active'
         """, (date_str,))
     else:
         cur.execute("""
-            SELECT booking_time FROM appointments 
+            SELECT booking_time, COALESCE(duration, 40) FROM appointments 
             WHERE barber = ? AND booking_date = ? AND status = 'active'
         """, (barber, date_str))
-    busy_app = [r[0] for r in cur.fetchall()]
+    app_items = cur.fetchall()
 
     cur.execute("""
-        SELECT booking_time FROM blocked_slots
+        SELECT booking_time, COALESCE(duration, 40) FROM blocked_slots
         WHERE (barber = ? OR barber = 'all') AND booking_date = ?
     """, (barber, date_str))
-    busy_blocked = [r[0] for r in cur.fetchall()]
-
+    blk_items = cur.fetchall()
     conn.close()
-    return list(set(busy_app + busy_blocked))
+
+    all_busy_intervals = app_items + blk_items
+
+    # Проверяем пересечение каждого слота из SCHEDULE_SLOTS с существующими записями/перерывами
+    busy_slots = set()
+    for slot in SCHEDULE_SLOTS:
+        for busy_time, busy_dur in all_busy_intervals:
+            if check_time_overlap(slot, 40, busy_time, busy_dur or 40):
+                busy_slots.add(slot)
+                break
+
+    return list(busy_slots)
 
 
 def get_user_active_bookings(user_id: int):
@@ -539,6 +615,7 @@ def get_main_menu():
 
 def get_staff_menu():
     kb = [
+        [KeyboardButton(text="📱 Журнал записи (Altegio)", web_app=WebAppInfo(url=f"{WEBAPP_URL}/staff"))],
         [KeyboardButton(text="📅 Расписание мастеров")],
         [KeyboardButton(text="🎬 Работы / Видео"), KeyboardButton(text="📊 Выручка за сегодня")]
     ]
@@ -613,7 +690,7 @@ async def cmd_contacts(message: types.Message):
     await message.answer(
         "📍 <b>Daddy Barbershop</b>\n"
         "г. Тирасполь, ул. 25 Октября, 94\n\n"
-        "⏰ <b>График работы:</b> 10:00 — 21:00 ежедневно\n"
+        "⏰ <b>График работы:</b> 09:00 — 21:00 ежедневно\n"
         f"💈 <b>Топ-барбер салона:</b> {DEFAULT_MASTER_NAME} (@_yakov_barber_)\n"
         "📸 <b>Instagram салона:</b> https://www.instagram.com/daddy.barbershop.md/\n"
         "🔗 <b>Запись к остальным мастерам (Altegio):</b> https://n807184.alteg.io/",
@@ -1358,7 +1435,9 @@ async def process_new_booking(data, from_user=None):
         client_name = from_user.full_name
     client_name = clean_input(client_name or "Гость", 60)
 
-    phone = validate_phone(data.get("phone", "Не указан"))
+    phone = validate_phone(data.get("phone", ""))
+    if phone is None:
+        raise ValueError("Номер телефона должен начинаться с +373 и содержать 8 цифр.")
     
     raw_barber = str(data.get("barber") or DEFAULT_MASTER_NAME).strip()
     barber = raw_barber if raw_barber in ["Yakov", "Рувим", "Лиза"] else DEFAULT_MASTER_NAME
@@ -1383,6 +1462,7 @@ async def process_new_booking(data, from_user=None):
         save_or_update_client_profile(user_id, client_name, phone)
 
     # Сохраняем в таблицу записей с защитой от двойного бронирования
+    source = data.get("source", "online")
     rec_id = save_appointment(
         user_id=user_id,
         name=client_name,
@@ -1392,7 +1472,8 @@ async def process_new_booking(data, from_user=None):
         date=date,
         time=time,
         extra_services=extra_services,
-        total_price=total_price
+        total_price=total_price,
+        source=source
     )
     if not rec_id:
         return None  # Слот уже занят
@@ -2245,12 +2326,346 @@ async def api_serve_calendar_ics(request):
 
 
 # ==============================================================================
+# 8.5. СТАФФ-ПАНЕЛЬ И ЖУРНАЛ ЗАПИСЕЙ (ALTEGIO STYLE) + УПРАВЛЕНИЕ ВИДЕО
+# ==============================================================================
+async def serve_staff(request):
+    file_path = os.path.join(os.path.dirname(__file__), "static", "staff.html")
+    if os.path.exists(file_path):
+        return web.FileResponse(file_path)
+    return web.Response(text="Staff page not found", status=404)
+
+
+async def api_staff_get_journal(request):
+    raw_date = request.query.get("date", "")
+    date_str = clean_input(raw_date, 10) if raw_date else datetime.now().strftime("%d.%m")
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    # 1. Fetch appointments for this date
+    cur.execute("""
+        SELECT id, barber, booking_time, user_name, phone, service, extra_services, total_price, confirmed, user_id, source, COALESCE(duration, 40)
+        FROM appointments
+        WHERE booking_date = ? AND status = 'active'
+        ORDER BY booking_time ASC
+    """, (date_str,))
+    app_rows = cur.fetchall()
+
+    # 2. Fetch blocked slots for this date
+    cur.execute("""
+        SELECT id, barber, booking_time, reason, COALESCE(duration, 40)
+        FROM blocked_slots
+        WHERE booking_date = ?
+    """, (date_str,))
+    blk_rows = cur.fetchall()
+    conn.close()
+
+    # Group by barber
+    barber_definitions = [
+        {"id": "liza", "name": "Лиза", "role": "Барбер", "avatar": "/static/img/liza.jpg"},
+        {"id": "yakov", "name": "Yakov", "role": "Топ-барбер", "avatar": "/static/img/yakov.jpg"},
+        {"id": "ruvim", "name": "Рувим", "role": "Топ-барбер", "avatar": "/static/img/ruvim.jpg"},
+    ]
+
+    total_revenue = 0
+    total_clients = len(app_rows)
+    upsell_count = 0
+    masters_data = []
+
+    for m in barber_definitions:
+        m_name = m["name"]
+        m_apps = []
+        for r in app_rows:
+            if r[1].lower() == m_name.lower():
+                price = r[7] or 0
+                total_revenue += price
+                if r[6]:
+                    upsell_count += 1
+                raw_src = r[10] if (len(r) > 10 and r[10]) else None
+                app_source = raw_src if raw_src in ("online", "manual") else ("online" if (r[9] and r[9] > 0) else "manual")
+                m_apps.append({
+                    "id": r[0],
+                    "barber": r[1],
+                    "booking_time": r[2],
+                    "user_name": r[3],
+                    "phone": r[4],
+                    "service": r[5],
+                    "extra_services": r[6] or "",
+                    "total_price": price,
+                    "confirmed": r[8] or 0,
+                    "source": app_source,
+                    "duration": r[11] or 40
+                })
+
+        m_blocks = []
+        for b in blk_rows:
+            if b[1].lower() == m_name.lower() or b[1] == "all":
+                m_blocks.append({
+                    "id": b[0],
+                    "barber": m_name,
+                    "booking_time": b[2],
+                    "reason": b[3] or "Перерыв",
+                    "duration": b[4] or 40
+                })
+
+        masters_data.append({
+            "id": m["id"],
+            "name": m["name"],
+            "role": m["role"],
+            "avatar": m["avatar"],
+            "appointments": m_apps,
+            "blocked_slots": m_blocks
+        })
+
+    return web.json_response({
+        "status": "ok",
+        "date": date_str,
+        "masters": masters_data,
+        "stats": {
+            "total_clients": total_clients,
+            "total_revenue": total_revenue,
+            "upsell_count": upsell_count
+        }
+    })
+
+
+async def api_staff_add_appointment(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    barber = clean_input(data.get("barber", DEFAULT_MASTER_NAME), 30)
+    date_str = clean_input(data.get("date", datetime.now().strftime("%d.%m")), 10)
+    time_str = clean_input(data.get("time", "12:00"), 10)
+    client_name = clean_input(data.get("client_name", "Гость"), 60)
+    phone = validate_phone(data.get("phone", ""))
+    if phone is None:
+        return web.json_response({
+            "status": "error",
+            "message": "Номер телефона должен начинаться с +373 и содержать 8 цифр (или оставьте поле пустым)"
+        }, status=400)
+    service = clean_input(data.get("service", "Стрижка"), 80)
+    total_price = int(data.get("total_price", 200))
+    source = clean_input(data.get("source", "manual"), 20)
+    if source not in ("online", "manual"):
+        source = "manual"
+    duration = int(data.get("duration", 40))
+    if duration <= 0:
+        duration = 40
+
+    rec_id = save_appointment(
+        user_id=0,
+        name=client_name,
+        phone=phone,
+        barber=barber,
+        service=service,
+        date=date_str,
+        time=time_str,
+        extra_services="",
+        total_price=total_price,
+        source=source,
+        duration=duration
+    )
+    if not rec_id:
+        return web.json_response({"status": "error", "message": "Слот уже занят"}, status=409)
+
+    return web.json_response({"status": "ok", "id": rec_id})
+
+
+async def api_staff_block_slot(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    barber = clean_input(data.get("barber", DEFAULT_MASTER_NAME), 30)
+    date_str = clean_input(data.get("date", datetime.now().strftime("%d.%m")), 10)
+    time_str = clean_input(data.get("time", "12:00"), 10)
+    reason = clean_input(data.get("reason", "Перерыв"), 100)
+    duration = int(data.get("duration", 40))
+    if duration <= 0:
+        duration = 40
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    if barber == "all":
+        for b_name in ["Лиза", "Yakov", "Рувим"]:
+            cur.execute("""
+                INSERT INTO blocked_slots (barber, booking_date, booking_time, reason, duration)
+                VALUES (?, ?, ?, ?, ?)
+            """, (b_name, date_str, time_str, reason, duration))
+    else:
+        cur.execute("""
+            INSERT INTO blocked_slots (barber, booking_date, booking_time, reason, duration)
+            VALUES (?, ?, ?, ?, ?)
+        """, (barber, date_str, time_str, reason, duration))
+    conn.commit()
+    conn.close()
+
+    return web.json_response({"status": "ok"})
+
+
+async def api_staff_unblock_slot(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    barber = clean_input(data.get("barber", ""), 30)
+    date_str = clean_input(data.get("date", ""), 10)
+    time_str = clean_input(data.get("time", ""), 10)
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        DELETE FROM blocked_slots
+        WHERE (barber = ? OR barber = 'all') AND booking_date = ? AND booking_time = ?
+    """, (barber, date_str, time_str))
+    conn.commit()
+    conn.close()
+
+    return web.json_response({"status": "ok"})
+
+
+async def api_staff_cancel_appointment(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    app_id = int(data.get("id", 0))
+    if not app_id:
+        return web.json_response({"status": "error", "message": "ID missing"}, status=400)
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("UPDATE appointments SET status = 'cancelled' WHERE id = ?", (app_id,))
+    conn.commit()
+    conn.close()
+
+    return web.json_response({"status": "ok"})
+
+
+async def api_staff_upload_video(request):
+    try:
+        content_type = request.content_type
+        caption = "Работа мастера"
+        barber = DEFAULT_MASTER_NAME
+        video_url = ""
+
+        if "multipart/form-data" in content_type:
+            reader = await request.multipart()
+            while True:
+                part = await reader.next()
+                if part is None:
+                    break
+                if part.name == 'caption':
+                    txt = (await part.text()).strip()
+                    if txt:
+                        caption = clean_input(txt, 200)
+                elif part.name == 'barber':
+                    txt = (await part.text()).strip()
+                    if txt:
+                        barber = clean_input(txt, 30)
+                elif part.name == 'video_url':
+                    txt = (await part.text()).strip()
+                    if txt:
+                        video_url = clean_input(txt, 500)
+                elif part.name == 'video':
+                    if part.filename:
+                        ext = os.path.splitext(part.filename)[1].lower() or ".mp4"
+                        safe_name = f"video_{int(time.time())}_{uuid.uuid4().hex[:6]}{ext}"
+                        file_path = os.path.join(PORTFOLIO_DIR, safe_name)
+                        size = 0
+                        max_size = 60 * 1024 * 1024  # 60 MB
+                        with open(file_path, 'wb') as f:
+                            while True:
+                                chunk = await part.read_chunk(65536)
+                                if not chunk:
+                                    break
+                                size += len(chunk)
+                                if size > max_size:
+                                    f.close()
+                                    if os.path.exists(file_path):
+                                        os.remove(file_path)
+                                    return web.json_response({"status": "error", "message": "Размер видео превышает 60 МБ"}, status=413)
+                                f.write(chunk)
+                        video_url = f"/media/{safe_name}"
+        else:
+            data = await request.json()
+            caption = clean_input(data.get("caption", "Работа мастера"), 200)
+            barber = clean_input(data.get("barber", DEFAULT_MASTER_NAME), 30)
+            video_url = clean_input(data.get("video_url", ""), 500)
+
+        if not video_url:
+            return web.json_response({"status": "error", "message": "Файл видео или ссылка не указаны"}, status=400)
+
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO instagram_works (image_url, caption, tag, barber_name, instagram_url, video_url)
+            VALUES (?, ?, 'Стрижка', ?, ?, ?)
+        """, ("/static/img/hero-bg.jpg", caption, barber, INSTAGRAM_URL, video_url))
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+
+        return web.json_response({
+            "status": "ok",
+            "work": {
+                "id": new_id,
+                "caption": caption,
+                "barber_name": barber,
+                "video_url": video_url
+            }
+        })
+    except Exception as e:
+        logging.error(f"Error uploading video: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+async def api_staff_delete_video(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    work_id = int(data.get("id", 0))
+    if not work_id:
+        return web.json_response({"status": "error", "message": "ID не указан"}, status=400)
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT video_url, image_url FROM instagram_works WHERE id = ?", (work_id,))
+    row = cur.fetchone()
+    if row:
+        v_url, i_url = row
+        cur.execute("DELETE FROM instagram_works WHERE id = ?", (work_id,))
+        conn.commit()
+        for u in [v_url, i_url]:
+            if u and u.startswith("/media/"):
+                fname = u.replace("/media/", "")
+                fpath = os.path.join(PORTFOLIO_DIR, fname)
+                if os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+    conn.close()
+    return web.json_response({"status": "ok"})
+
+
+# ==============================================================================
 # 9. ЗАПУСК ПРИЛОЖЕНИЯ
 # ==============================================================================
 async def main():
     init_db()
 
     app = web.Application(middlewares=[security_middleware])
+    app.router.add_get("/", serve_staff)
+    app.router.add_get("/staff", serve_staff)
+    app.router.add_get("/staff-journal", serve_staff)
     app.router.add_get("/webapp", serve_index)
 
     static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -2259,6 +2674,13 @@ async def main():
 
     # API
     app.router.add_get("/api/slots", api_get_busy_slots)
+    app.router.add_get("/api/staff/journal", api_staff_get_journal)
+    app.router.add_post("/api/staff/add-appointment", api_staff_add_appointment)
+    app.router.add_post("/api/staff/block-slot", api_staff_block_slot)
+    app.router.add_post("/api/staff/unblock-slot", api_staff_unblock_slot)
+    app.router.add_post("/api/staff/cancel-appointment", api_staff_cancel_appointment)
+    app.router.add_post("/api/staff/upload-video", api_staff_upload_video)
+    app.router.add_post("/api/staff/delete-video", api_staff_delete_video)
     app.router.add_get("/api/user-profile", api_get_user_profile)
     app.router.add_get("/api/my-bookings", api_get_my_bookings)
     app.router.add_post("/api/book", api_create_booking)

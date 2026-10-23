@@ -1,0 +1,2404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Журнал записи • Daddy Barbershop</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #FFFFFF;
+      --bg-grid: #F8FAFC;
+      --bg-working: #DCF5E3;
+      --bg-working-light: #EBF9F0;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --border-color: #E2E8F0;
+      --hour-line: #EDF2F7;
+      --accent-yellow: #F59E0B;
+      --accent-red: #EF4444;
+      --accent-purple: #7E57C2;
+      --accent-green: #388E3C;
+      --accent-blue: #2563EB;
+      --card-bg: #C6F0D1;
+      --card-border: #A3E3B3;
+      --bottom-bar-bg: #1E232B;
+      --hour-height: 96px; /* 1 hour = 96px, 1 min = 1.6px */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: #F1F5F9;
+      color: var(--text-main);
+      overflow-x: hidden;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    /* App container (responsive on desktop & mobile) */
+    .app-viewport {
+      width: 100%;
+      max-width: 600px;
+      background: var(--bg-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      position: relative;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    /* 1. TOP HEADER */
+    .header-bar {
+      padding: 12px 16px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      z-index: 40;
+    }
+
+    .header-date-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .header-date-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-date-chevron {
+      color: var(--accent-yellow);
+      font-size: 14px;
+      transition: transform 0.2s ease;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filter-master-pill {
+      background: #EEF2F6;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #E2E8F0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #475569;
+    }
+
+    /* Quick Add floating action button inside header */
+    .quick-plus-btn {
+      color: var(--accent-yellow);
+      font-size: 28px;
+      font-weight: 300;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 6px 4px;
+      user-select: none;
+    }
+
+    /* 2. MASTER AVATARS HEADER ROW (STICKY) */
+    .masters-header-row {
+      display: flex;
+      background: #FFFFFF;
+      border-bottom: 1.5px solid var(--border-color);
+      z-index: 30;
+      padding-bottom: 8px;
+      padding-top: 6px;
+    }
+
+    .timeline-corner-space {
+      width: 52px;
+      min-width: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .masters-cols-header {
+      display: flex;
+      flex: 1;
+    }
+
+    .master-head-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .master-head-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #E2E8F0;
+      margin-bottom: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+    }
+
+    .master-head-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .master-head-role {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* 3. SCROLLABLE TIMELINE GRID */
+    .grid-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      background: var(--bg-main);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .timeline-wrapper {
+      display: flex;
+      position: relative;
+      min-height: calc(11 * var(--hour-height)); /* 10:00 to 21:00 = 11 hours */
+      background: #FFFFFF;
+    }
+
+    /* Left Time axis */
+    .timeline-axis {
+      width: 52px;
+      min-width: 52px;
+      position: relative;
+      background: #FFFFFF;
+      border-right: 1px solid var(--border-color);
+      z-index: 10;
+    }
+
+    .timeline-hour-label {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #94A3B8;
+      transform: translateY(-50%);
+    }
+
+    /* Columns container */
+    .masters-grid-columns {
+      display: flex;
+      flex: 1;
+      position: relative;
+    }
+
+    /* Individual master column */
+    .master-column {
+      flex: 1;
+      position: relative;
+      border-right: 1px solid #EEF2F6;
+      background: var(--bg-working-light);
+    }
+
+    .master-column:last-child {
+      border-right: none;
+    }
+
+    /* Diagonal striped pattern for non-working / closed hours */
+    .master-column.striped-top {
+      background: repeating-linear-gradient(
+        -45deg,
+        #F8FAFC,
+        #F8FAFC 8px,
+        #EEF2F6 8px,
+        #EEF2F6 16px
+      );
+    }
+
+    /* Horizontal grid lines across hours */
+    .hour-grid-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--hour-line);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .half-hour-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #F1F5F9;
+      border-top: 1px dashed #E2E8F0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* 4. RED CURRENT LIVE TIME INDICATOR LINE */
+    .live-time-indicator {
+      position: absolute;
+      left: 0;
+      right: 0;
+      z-index: 25;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .live-time-bubble {
+      position: absolute;
+      left: 3px;
+      background: #E55039;
+      color: #FFFFFF;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 10px;
+      transform: translateY(-50%);
+      box-shadow: 0 1px 4px rgba(229,80,57,0.4);
+      z-index: 26;
+    }
+
+    .live-time-line {
+      position: absolute;
+      left: 48px;
+      right: 0;
+      height: 1.5px;
+      background: #E55039;
+      display: flex;
+      align-items: center;
+    }
+
+    .live-time-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #FFFFFF;
+      border: 1.5px solid #E55039;
+      margin-left: 2px;
+    }
+
+    /* 5. APPOINTMENT CARDS (Altegio Style) */
+    .appointment-card {
+      position: absolute;
+      left: 3px;
+      right: 3px;
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: pointer;
+      z-index: 15;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      transition: transform 0.1s, box-shadow 0.1s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .appointment-card:active {
+      transform: scale(0.98);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* ONLINE BOOKINGS VIA TELEGRAM: ГОЛУБОЙ (Sky Blue) */
+    .appointment-card.online-card {
+      background: #F0F9FF;
+      border: 1px solid #7DD3FC;
+      box-shadow: 0 2px 8px rgba(14,165,233,0.15);
+    }
+    .appointment-card.online-card .card-header-strip {
+      background: #0284C7; /* Чистый голубой */
+    }
+    .appointment-card.online-card .card-client-name {
+      color: #0369A1;
+    }
+    .appointment-card.online-card .card-service-title {
+      color: #0284C7;
+    }
+
+    /* MANUAL BOOKINGS: GREEN (Altegio style as in screenshot!) */
+    .appointment-card.manual-card {
+      background: #DCFCE7;
+      border: 1px solid #86EFAC;
+      box-shadow: 0 2px 8px rgba(16,185,129,0.12);
+    }
+    .appointment-card.manual-card .card-header-strip {
+      background: #10B981; /* Fresh Altegio Green */
+    }
+    .appointment-card.manual-card .card-client-name {
+      color: #064E3B;
+    }
+    .appointment-card.manual-card .card-service-title {
+      color: #047857;
+    }
+
+    /* Card Top Strip */
+    .card-header-strip {
+      padding: 3px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #2563EB;
+    }
+
+    .card-source-pill {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.25);
+      color: #FFFFFF;
+      letter-spacing: 0.2px;
+    }
+
+    /* 40-MINUTE SLOT DIVIDER LINE IN MASTER COLUMNS */
+    .slot-divider-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #E2E8F0;
+      border-top: 1px dashed #CBD5E1;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* TOP LEGEND BAR */
+    .legend-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 7px 12px;
+      background: #F8FAFC;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 11px;
+      font-weight: 600;
+      color: #475569;
+      z-index: 35;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .legend-badge {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+    .legend-badge.blue {
+      background: #2563EB;
+      box-shadow: 0 0 0 1px #93C5FD;
+    }
+    .legend-badge.green {
+      background: #16A34A;
+      box-shadow: 0 0 0 1px #86EFAC;
+    }
+    .legend-badge.break {
+      background: repeating-linear-gradient(45deg, #CBD5E1, #CBD5E1 2px, #E2E8F0 2px, #E2E8F0 4px);
+    }
+
+    /* QUICK DURATION CHIPS & TIME NOTICES */
+    .quick-dur-pill {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #F1F5F9;
+      color: #334155;
+      border: 1px solid #CBD5E1;
+      border-radius: 6px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s;
+    }
+    .quick-dur-pill:hover, .quick-dur-pill.active {
+      background: #0284C7;
+      color: #FFFFFF;
+      border-color: #0284C7;
+    }
+    .quick-dur-pill.break-pill:hover, .quick-dur-pill.break-pill.active {
+      background: #E11D48;
+      color: #FFFFFF;
+      border-color: #E11D48;
+    }
+    .grid-time-notice {
+      background: #F0F9FF;
+      border: 1px solid #BAE6FD;
+      color: #0369A1;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .timeline-hour-label {
+      cursor: pointer;
+      user-select: none;
+    }
+    .timeline-hour-label:hover {
+      color: #0284C7;
+      font-weight: 700;
+    }
+
+    /* SOURCE TOGGLE IN MODAL */
+    .source-toggle-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .source-radio-label {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1.5px solid #E2E8F0;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: #FFFFFF;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .source-radio-label input {
+      display: none;
+    }
+    .source-radio-label.selected-manual {
+      border-color: #16A34A;
+      background: #F0FDF4;
+      color: #15803D;
+      box-shadow: 0 1px 4px rgba(22,163,74,0.15);
+    }
+    .source-radio-label.selected-online {
+      border-color: #2563EB;
+      background: #EFF6FF;
+      color: #1D4ED8;
+      box-shadow: 0 1px 4px rgba(37,99,235,0.15);
+    }
+
+    .card-clock-icon {
+      font-size: 10px;
+      opacity: 0.9;
+    }
+
+    .card-body {
+      padding: 4px 6px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 1px;
+    }
+
+    .card-client-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0F172A;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-client-phone {
+      font-size: 10px;
+      color: #334155;
+      font-weight: 500;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-service-title {
+      font-size: 10px;
+      color: #475569;
+      font-weight: 500;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-badge-new {
+      display: inline-block;
+      background: #1D4ED8;
+      color: #FFFFFF;
+      font-size: 8px;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 4px;
+      margin-right: 4px;
+      vertical-align: middle;
+      text-transform: uppercase;
+    }
+
+    /* Blocked slot card (Перерыв) */
+    .blocked-slot-card {
+      position: absolute;
+      left: 3px;
+      right: 3px;
+      background: repeating-linear-gradient(
+        45deg,
+        #F1F5F9,
+        #F1F5F9 6px,
+        #E2E8F0 6px,
+        #E2E8F0 12px
+      );
+      border: 1px dashed #CBD5E1;
+      border-radius: 6px;
+      z-index: 12;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #64748B;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      padding: 4px;
+    }
+
+    /* 6. BOTTOM WEEKDAY SELECTOR BAR (ALTEGIO STYLE: 7 DAYS FULL WIDTH) */
+    .bottom-date-bar {
+      background: var(--bottom-bar-bg);
+      border-radius: 14px;
+      margin: 8px 12px 14px;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+      z-index: 35;
+    }
+
+    .day-pill-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #94A3B8;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.15s;
+      min-width: 0;
+    }
+
+    .day-pill-item .day-name {
+      font-size: 11px;
+      margin-bottom: 2px;
+      text-transform: lowercase;
+    }
+
+    .day-pill-item .day-num {
+      font-size: 15px;
+      font-weight: 700;
+      color: #F8FAFC;
+    }
+
+    /* Weekend colors */
+    .day-pill-item.weekend .day-name,
+    .day-pill-item.weekend .day-num {
+      color: #FB923C;
+    }
+
+    /* Active Selected Day (Bold Yellow Pill like in screenshot!) */
+    .day-pill-item.active {
+      background: var(--accent-yellow);
+      color: #000000;
+    }
+
+    .day-pill-item.active .day-name,
+    .day-pill-item.active .day-num {
+      color: #000000 !important;
+      font-weight: 800;
+    }
+
+    /* 8. MODALS & SHEETS */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .bottom-sheet {
+      background: #FFFFFF;
+      width: 100%;
+      max-width: 600px;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 20px 28px;
+      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .sheet-handle {
+      width: 40px;
+      height: 4px;
+      background: #CBD5E1;
+      border-radius: 2px;
+      margin: 0 auto 16px;
+    }
+
+    .sheet-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0F172A;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sheet-close-btn {
+      font-size: 20px;
+      color: #94A3B8;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      padding: 4px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #0F172A;
+      outline: none;
+      background: #F8FAFC;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: var(--accent-yellow);
+      background: #FFFFFF;
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: var(--text-main);
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: opacity 0.15s;
+    }
+
+    .btn-primary:active {
+      opacity: 0.85;
+    }
+
+    .btn-danger {
+      width: 100%;
+      background: #FEE2E2;
+      color: #DC2626;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #FCA5A5;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .btn-call {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      background: #DCFCE7;
+      color: #15803D;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 11px;
+      border-radius: 10px;
+      text-decoration: none;
+      margin-top: 10px;
+      border: 1px solid #86EFAC;
+    }
+
+    .tabs-nav-modal {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .modal-tab-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #F1F5F9;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1.5px solid #E2E8F0;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+
+    .modal-tab-btn.active.tab-booking {
+      background: #2563EB;
+      color: #FFFFFF;
+      border-color: #1D4ED8;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+    }
+
+    .modal-tab-btn.active.tab-break {
+      background: #E11D48;
+      color: #FFFFFF;
+      border-color: #BE123C;
+      box-shadow: 0 2px 8px rgba(225,29,72,0.3);
+    }
+
+    /* VIDEOS MODAL STYLES */
+    .video-card-item {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+    }
+    .video-card-player {
+      width: 100%;
+      height: 200px;
+      background: #0F172A;
+      object-fit: cover;
+    }
+    .video-card-info {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .video-card-details {
+      flex: 1;
+    }
+    .video-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0F172A;
+      line-height: 1.3;
+    }
+    .video-card-master {
+      font-size: 11px;
+      color: #64748B;
+      margin-top: 3px;
+    }
+    .video-btn-delete {
+      background: #FEE2E2;
+      color: #DC2626;
+      border: 1px solid #FCA5A5;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .video-btn-delete:active {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-viewport">
+
+  <!-- 1. HEADER BAR -->
+  <header class="header-bar">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="quick-plus-btn" onclick="onQuickPlusClick()" title="Добавить запись или перерыв">+</div>
+      <div class="header-date-wrap" style="position: relative;" onclick="openDatePicker()">
+        <span class="header-date-title" id="currentDateTitle">22 октября</span>
+        <span class="header-date-chevron">▼</span>
+        <input type="date" id="nativeDatePicker" style="position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer;" onchange="onNativeDateChange(this.value)">
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <div class="filter-master-pill" id="filterMasterBtn" onclick="toggleMasterFilter()">
+        <span id="filterLabel">👥 Все</span>
+      </div>
+      <div class="icon-btn" onclick="openVideosModal()" title="Видео работы">
+        <span style="font-size: 15px;">🎬</span>
+      </div>
+      <div class="icon-btn" onclick="openStatsModal()" title="Касса за день">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. MASTERS AVATARS STICKY ROW -->
+  <div class="masters-header-row">
+    <div class="timeline-corner-space" id="liveTimeClock">11:07</div>
+    <div class="masters-cols-header" id="mastersHeadersWrap">
+      <!-- Injected dynamically: Liza, Yakov, Ruvim -->
+    </div>
+  </div>
+
+  <!-- 3. SCROLLABLE TIMELINE GRID -->
+  <div class="grid-scroll-area" id="gridScrollArea">
+    <div class="timeline-wrapper">
+      
+      <!-- Left Time Axis (10:00 - 21:00) -->
+      <div class="timeline-axis" id="timelineAxis">
+        <!-- Injected via JS -->
+      </div>
+
+      <!-- Live Red Time Line -->
+      <div class="live-time-indicator" id="liveTimeIndicator" style="display: none;">
+        <div class="live-time-bubble" id="liveTimeBubble">11:07</div>
+        <div class="live-time-line">
+          <div class="live-time-dot"></div>
+        </div>
+      </div>
+
+      <!-- Master Columns Grid -->
+      <div class="masters-grid-columns" id="mastersColumnsWrap">
+        <!-- Injected dynamically: master columns, cards, and hour lines -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 4. BOTTOM WEEKDAY SELECTOR (ALTEGIO STYLE) -->
+  <div class="bottom-date-bar" id="weekDayStrip">
+    <!-- Injected dynamically: пн 19, вт 20, ср 21, чт 22, пт 23, сб 24, вс 25 -->
+  </div>
+
+</div>
+
+<!-- MODAL 1: APPOINTMENT DETAILS (Bottom Sheet) -->
+<div class="modal-backdrop" id="appDetailsModal" onclick="closeModalOnBackdrop(event, 'appDetailsModal')">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">
+      <span id="dtlHeaderTitle">Запись клиента</span>
+      <button class="sheet-close-btn" onclick="closeModal('appDetailsModal')">✕</button>
+    </div>
+    
+    <div style="background: #F8FAFC; border-radius: 12px; padding: 14px; border: 1px solid #E2E8F0; margin-bottom: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+        <div>
+          <div style="font-size: 18px; font-weight: 800; color: #0F172A;" id="dtlClientName">Даниил</div>
+          <div style="font-size: 14px; font-weight: 600; color: #2563EB;" id="dtlPhone">+373 779 844-21</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 18px; font-weight: 800; color: #16A34A;" id="dtlPrice">200 руб</div>
+          <div style="font-size: 11px; color: #64748B;" id="dtlStatus">✅ Подтверждена</div>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid #E2E8F0; padding-top: 8px; margin-top: 8px; font-size: 13px; color: #334155;">
+        <div>✂️ <b>Услуга:</b> <span id="dtlService">Мужская стрижка</span></div>
+        <div id="dtlExtraRow" style="margin-top: 4px;">➕ <b>Доп. услуги:</b> <span id="dtlExtras">Нет</span></div>
+        <div style="margin-top: 4px;">💈 <b>Мастер:</b> <span id="dtlBarber">Yakov</span></div>
+        <div style="margin-top: 4px;">⏰ <b>Время:</b> <span id="dtlTime">10:30 - 11:15</span> (дата: <span id="dtlDate">22.10</span>)</div>
+      </div>
+    </div>
+
+    <a href="#" class="btn-call" id="dtlCallLink">
+      <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+      Позвонить клиенту
+    </a>
+
+    <button class="btn-danger" onclick="cancelCurrentAppointment()">❌ Отменить эту запись</button>
+  </div>
+</div>
+
+<!-- MODAL 2: QUICK ADD (BOOKING / BREAK) -->
+<div class="modal-backdrop" id="quickAddModal" onclick="closeModalOnBackdrop(event, 'quickAddModal')">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">
+      <div>
+        <span id="quickModalTitle">Новая запись / Перерыв</span>
+        <div id="quickModalSubtitle" style="font-size: 12px; color: #2563EB; font-weight: 600; margin-top: 3px; display: none;"></div>
+      </div>
+      <button class="sheet-close-btn" onclick="closeModal('quickAddModal')">✕</button>
+    </div>
+
+    <div class="tabs-nav-modal">
+      <button class="modal-tab-btn tab-booking active" id="tabBookingBtn" onclick="switchQuickAddTab('booking')">✂️ Клиент</button>
+      <button class="modal-tab-btn tab-break" id="tabBreakBtn" onclick="switchQuickAddTab('break')">☕ Перерыв мастера</button>
+    </div>
+
+    <!-- Booking Form (Simplified: Only Name & Phone, Free Start/End Time) -->
+    <div id="bookingFormSection">
+      <!-- Hidden source: always manual when added by staff -->
+      <input type="hidden" id="appSource" value="manual">
+
+      <!-- Screen Time Notice (Shown when clicked from grid) -->
+      <div id="gridTimeNotice" class="grid-time-notice" style="display: none;">
+        📍 Время выбрано с экрана: <b id="gridTimeNoticeText">12:00 — 12:40</b>
+      </div>
+
+      <!-- Master Selector -->
+      <div class="form-group" style="margin-bottom: 10px;">
+        <label class="form-label">Мастер:</label>
+        <select class="form-select" id="newAppBarber">
+          <option value="Yakov">Yakov (Топ-барбер)</option>
+          <option value="Рувим">Рувим (Топ-барбер)</option>
+          <option value="Лиза">Лиза (Барбер)</option>
+        </select>
+      </div>
+
+      <!-- Start and End Time (Начало и Конец) -->
+      <div style="display: flex; gap: 10px; margin-bottom: 4px;">
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+          <label class="form-label">Начало:</label>
+          <input type="time" class="form-input" id="newAppTime" value="12:00" onchange="onTimeRangeChanged('app')">
+        </div>
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+          <label class="form-label">Конец:</label>
+          <input type="time" class="form-input" id="newAppEndTime" value="12:40" onchange="onTimeRangeChanged('app')">
+        </div>
+      </div>
+
+      <!-- Quick duration selector pills -->
+      <div id="appDurPills" style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; align-items: center;">
+        <span style="font-size: 11px; color: #64748B; margin-right: 2px;">Длительность:</span>
+        <button type="button" class="quick-dur-pill" data-dur="20" onclick="setQuickDuration('app', 20)">20 мин</button>
+        <button type="button" class="quick-dur-pill" data-dur="30" onclick="setQuickDuration('app', 30)">30 мин</button>
+        <button type="button" class="quick-dur-pill active" data-dur="40" onclick="setQuickDuration('app', 40)">40 мин</button>
+        <button type="button" class="quick-dur-pill" data-dur="60" onclick="setQuickDuration('app', 60)">1 час</button>
+      </div>
+      <div id="appDurationBadge" style="font-size: 11px; color: #0284C7; font-weight: 600; margin-bottom: 12px;">⏱ Длительность: 40 мин</div>
+
+      <!-- Only Name & Phone required! -->
+      <div class="form-group">
+        <label class="form-label">👤 Имя клиента:</label>
+        <input type="text" class="form-input" id="newAppClient" placeholder="Например: Даниил">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">📞 Номер телефона <span style="font-size: 11px; color: #94A3B8; font-weight: normal;">(необязательно)</span>:</label>
+        <input type="tel" class="form-input" id="newAppPhone" placeholder="+373 779 000-00" maxlength="17" autocomplete="tel">
+        <div id="phoneError" style="display: none; color: #EF4444; font-size: 11px; font-weight: 600; margin-top: 4px;">⚠️ Номер должен начинаться с +373 и содержать ровно 8 цифр</div>
+      </div>
+
+      <!-- Service notice (always "Стрижка") -->
+      <div style="font-size: 12px; color: #64748B; margin-bottom: 14px; background: #F8FAFC; padding: 8px 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
+        💈 Услуга: <b style="color: #0F172A;">Стрижка</b> <span style="color: #94A3B8;">(200 руб)</span>
+      </div>
+
+      <!-- Hidden defaults for standard payload -->
+      <input type="hidden" id="newAppService" value="Стрижка">
+      <input type="hidden" id="newAppPrice" value="200">
+      <input type="hidden" id="newAppDuration" value="40">
+
+      <button class="btn-primary" id="btnSubmitNewApp" onclick="submitNewAppointment()">💾 Записать клиента</button>
+    </div>
+
+    <!-- Break Form (With flexible Start & End Time) -->
+    <div id="breakFormSection" style="display: none;">
+      <!-- Screen Time Notice for Break -->
+      <div id="gridBreakTimeNotice" class="grid-time-notice" style="display: none; background: #FFF1F2; border-color: #FECDD3; color: #BE123C;">
+        📍 Время выбрано с экрана: <b id="gridBreakTimeNoticeText">12:00 — 12:20</b>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 10px;">
+        <label class="form-label">Мастер:</label>
+        <select class="form-select" id="breakBarber">
+          <option value="Yakov">Yakov</option>
+          <option value="Рувим">Рувим</option>
+          <option value="Лиза">Лиза</option>
+          <option value="all">Все мастера</option>
+        </select>
+      </div>
+
+      <!-- Start and End Time for Break -->
+      <div style="display: flex; gap: 10px; margin-bottom: 4px;">
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+          <label class="form-label">Начало:</label>
+          <input type="time" class="form-input" id="breakTime" value="12:00" onchange="onTimeRangeChanged('break')">
+        </div>
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+          <label class="form-label">Конец:</label>
+          <input type="time" class="form-input" id="breakEndTime" value="12:20" onchange="onTimeRangeChanged('break')">
+        </div>
+      </div>
+
+      <!-- Quick duration selector pills for Break -->
+      <div id="breakDurPills" style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; align-items: center;">
+        <span style="font-size: 11px; color: #64748B; margin-right: 2px;">Длительность:</span>
+        <button type="button" class="quick-dur-pill break-pill active" data-dur="20" onclick="setQuickDuration('break', 20)">20 мин</button>
+        <button type="button" class="quick-dur-pill break-pill" data-dur="30" onclick="setQuickDuration('break', 30)">30 мин</button>
+        <button type="button" class="quick-dur-pill break-pill" data-dur="40" onclick="setQuickDuration('break', 40)">40 мин</button>
+        <button type="button" class="quick-dur-pill break-pill" data-dur="60" onclick="setQuickDuration('break', 60)">1 час</button>
+      </div>
+      <div id="breakDurationBadge" style="font-size: 11px; color: #E11D48; font-weight: 600; margin-bottom: 12px;">⏱ Длительность: 20 мин</div>
+
+      <div class="form-group">
+        <label class="form-label">Причина перерыва:</label>
+        <input type="text" class="form-input" id="breakReason" value="Перерыв">
+      </div>
+
+      <button class="btn-primary" id="btnSubmitBreak" style="background: #E11D48;" onclick="submitBlockSlot()">🔒 Закрыть слот (перерыв)</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL 3: REVENUE & STATS -->
+<div class="modal-backdrop" id="statsModal" onclick="closeModalOnBackdrop(event, 'statsModal')">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">
+      <span>📊 Касса и выручка за сегодня</span>
+      <button class="sheet-close-btn" onclick="closeModal('statsModal')">✕</button>
+    </div>
+    
+    <div style="background: #1E293B; color: #FFFFFF; border-radius: 14px; padding: 18px; margin-bottom: 14px; text-align: center;">
+      <div style="font-size: 13px; color: #94A3B8; text-transform: uppercase; font-weight: 700;">Общая касса</div>
+      <div style="font-size: 32px; font-weight: 800; color: #F59E0B; margin: 4px 0;" id="statTotalRev">0 руб</div>
+      <div style="font-size: 13px; color: #CBD5E1;">Клиентов: <b id="statTotalClients">0</b> чел • Допродажи: <b id="statUpsells">0</b></div>
+    </div>
+
+    <div id="statBreakdownList" style="display: flex; flex-direction: column; gap: 8px;">
+      <!-- Injected per master -->
+    </div>
+  </div>
+</div>
+
+<!-- MODAL 4: VIDEOS & PORTFOLIO MANAGEMENT -->
+<div class="modal-backdrop" id="videosModal" onclick="closeModalOnBackdrop(event, 'videosModal')">
+  <div class="bottom-sheet" style="max-height: 88vh; display: flex; flex-direction: column;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">
+      <span>🎬 Видео работы барберов</span>
+      <button class="sheet-close-btn" onclick="closeModal('videosModal')">✕</button>
+    </div>
+
+    <!-- Actions Bar -->
+    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+      <button class="btn-primary" style="margin-top: 0; padding: 10px 14px; background: #2563EB; display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1;" onclick="toggleAddVideoForm()">
+        <span id="toggleAddVideoBtnText">➕ Добавить видео</span>
+      </button>
+      <button class="icon-btn" style="border-radius: 12px; width: 44px; height: 44px;" onclick="loadVideosList()" title="Обновить">
+        🔄
+      </button>
+    </div>
+
+    <!-- Hidden / Expandable Add Video Form -->
+    <div id="addVideoFormBox" style="display: none; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+      <div style="font-size: 14px; font-weight: 700; color: #0F172A; margin-bottom: 10px;">Загрузка нового видео</div>
+
+      <div class="form-group">
+        <label class="form-label">Мастер:</label>
+        <select class="form-select" id="newVideoBarber">
+          <option value="Yakov">Yakov (Топ-барбер)</option>
+          <option value="Рувим">Рувим (Топ-барбер)</option>
+          <option value="Лиза">Лиза (Барбер)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Название стрижки / подпись:</label>
+        <input type="text" class="form-input" id="newVideoCaption" placeholder="Например: Fade + борода">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Выберите файл видео (MP4 / MOV):</label>
+        <input type="file" class="form-input" id="newVideoFile" accept="video/mp4,video/webm,video/quicktime" style="padding: 8px;" onchange="previewSelectedVideo(event)">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 6px;">
+        <label class="form-label">Или прямая ссылка на видео (если не файл):</label>
+        <input type="url" class="form-input" id="newVideoUrl" placeholder="https://...">
+      </div>
+
+      <!-- Preview container -->
+      <div id="videoUploadPreview" style="display: none; margin: 10px 0; text-align: center;">
+        <video id="videoPreviewPlayer" controls playsinline style="max-width: 100%; max-height: 180px; border-radius: 8px; background: #000;"></video>
+      </div>
+
+      <button class="btn-primary" id="btnSubmitVideo" style="background: #16A34A;" onclick="submitNewVideo()">
+        🚀 Опубликовать видео
+      </button>
+      <div id="videoUploadStatus" style="font-size: 12px; font-weight: 600; text-align: center; margin-top: 6px; display: none;"></div>
+    </div>
+
+    <!-- Video Gallery Scroll Area -->
+    <div style="flex: 1; overflow-y: auto; padding-right: 2px;">
+      <div id="videosGalleryGrid" style="display: flex; flex-direction: column; gap: 14px;">
+        <!-- Injected dynamically: video cards -->
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Global State
+  const START_HOUR = 9;
+  const END_HOUR = 21;
+  const TOTAL_HOURS = END_HOUR - START_HOUR; // 12 hours (09:00 - 21:00)
+  const HOUR_HEIGHT = 96; // 96px per hour (1.6px per min)
+  const MINUTE_PIXELS = HOUR_HEIGHT / 60; // 1.6
+
+  const MASTERS = [
+    { id: "liza", name: "Лиза", role: "Барбер", img: "/static/img/liza.jpg", stripedTop: true },
+    { id: "yakov", name: "Yakov", role: "Топ-барбер", img: "/static/img/yakov.jpg", stripedTop: false },
+    { id: "ruvim", name: "Рувим", role: "Топ-барбер", img: "/static/img/ruvim.jpg", stripedTop: false }
+  ];
+
+  let selectedDate = getTodayFormatted(); // e.g. "22.10"
+  let journalData = null;
+  let activeAppointmentId = null;
+  let masterFilter = "all"; // "all" or master name
+
+  // Russian Months
+  const MONTHS_GENITIVE = [
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря"
+  ];
+
+  function getTodayFormatted() {
+    const d = new Date();
+    return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  // 1. INITIALIZATION
+  document.addEventListener("DOMContentLoaded", () => {
+    initTelegramWebApp();
+    initTodayAndCalendar();
+    renderTimeAxis();
+    renderMasterHeaders();
+    renderWeekdayStrip();
+    loadJournal(selectedDate);
+    updateLiveTimeIndicator();
+    syncTimeAndMaster();
+    initPhoneMask();
+    setInterval(updateLiveTimeIndicator, 30000); // Update every 30s
+  });
+
+  function initTodayAndCalendar() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const minDateStr = `${yyyy}-${mm}-${dd}`;
+
+    const dateInput = document.getElementById("nativeDatePicker");
+    if (dateInput) {
+      dateInput.min = minDateStr;
+      dateInput.value = minDateStr;
+    }
+
+    const day = today.getDate();
+    const month = today.getMonth();
+    const titleEl = document.getElementById("currentDateTitle");
+    if (titleEl) {
+      titleEl.innerText = `${day} ${MONTHS_GENITIVE[month]} (сегодня)`;
+    }
+  }
+
+  function openDatePicker() {
+    const input = document.getElementById("nativeDatePicker");
+    if (input) {
+      if (typeof input.showPicker === "function") {
+        try {
+          input.showPicker();
+          return;
+        } catch (e) {}
+      }
+      input.focus();
+    }
+  }
+
+  function onNativeDateChange(ymd) {
+    if (!ymd) return;
+    const parts = ymd.split("-");
+    const day = parts[2];
+    const month = parts[1];
+    const dateStr = `${day}.${month}`;
+    const d = new Date(parseInt(parts[0], 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    selectDay(dateStr, d);
+  }
+
+  function initTelegramWebApp() {
+    if (window.Telegram && window.Telegram.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      try {
+        tg.setHeaderColor('#FFFFFF');
+        tg.setBackgroundColor('#F1F5F9');
+      } catch (e) {}
+    }
+  }
+
+  // 2. RENDER TIME AXIS (09:00 to 21:00)
+  function renderTimeAxis() {
+    const axis = document.getElementById("timelineAxis");
+    axis.innerHTML = "";
+    for (let h = START_HOUR; h <= END_HOUR; h++) {
+      const el = document.createElement("div");
+      el.className = "timeline-hour-label";
+      el.style.top = `${(h - START_HOUR) * HOUR_HEIGHT}px`;
+      const label = `${String(h).padStart(2, '0')}:00`;
+      el.innerText = label;
+      el.title = `Нажмите, чтобы записать на ${label}`;
+      axis.appendChild(el);
+    }
+
+    // Clicking anywhere on time ruler automatically opens modal at that time
+    axis.onclick = (e) => {
+      const rect = axis.getBoundingClientRect();
+      const clickY = e.clientY - rect.top;
+      const clickMinutes = Math.max(0, clickY / MINUTE_PIXELS);
+      const snappedMinutes = Math.max(0, Math.min(Math.round(clickMinutes / 10) * 10, TOTAL_HOURS * 60 - 20));
+      const hour = START_HOUR + Math.floor(snappedMinutes / 60);
+      const min = snappedMinutes % 60;
+      const startTime = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+      const endTime = addMinutesToTime(startTime, 40);
+      const activeMaster = (masterFilter && masterFilter !== 'all') ? masterFilter : (MASTERS[0] ? MASTERS[0].name : 'Yakov');
+      openNewBookingModal(activeMaster, startTime, endTime, 'grid_click');
+    };
+  }
+
+  // 3. RENDER MASTER HEADERS (TOP ROW)
+  function renderMasterHeaders() {
+    const wrap = document.getElementById("mastersHeadersWrap");
+    wrap.innerHTML = "";
+    MASTERS.forEach(m => {
+      if (masterFilter !== "all" && masterFilter !== m.name) return;
+      const col = document.createElement("div");
+      col.className = "master-head-col";
+      col.onclick = () => filterByMaster(m.name);
+      col.innerHTML = `
+        <img src="${m.img}" class="master-head-avatar" alt="${m.name}" onerror="this.src='/static/img/yakov.jpg'">
+        <span class="master-head-name">${m.name}</span>
+        <span class="master-head-role">${m.role}</span>
+      `;
+      wrap.appendChild(col);
+    });
+  }
+
+  // 4. RENDER WEEKDAY BAR (BOTTOM PILL BAR - CURRENT WEEK AS IN ALTEGIO)
+  let currentWeekOffset = 0; // 0 = current week
+
+  function renderWeekdayStrip() {
+    const strip = document.getElementById("weekDayStrip");
+    strip.innerHTML = "";
+
+    const daysNames = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+    const now = new Date();
+    
+    // Start of current week (Monday)
+    const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (currentDayOfWeek - 1) + (currentWeekOffset * 7));
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+
+      const dayCode = d.getDay(); // 0 is Sunday, 6 is Saturday
+      const isWeekend = (dayCode === 0 || dayCode === 6);
+      const dayName = daysNames[dayCode];
+      const dayNum = d.getDate();
+      const dateStr = String(dayNum).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+
+      const pill = document.createElement("div");
+      pill.className = `day-pill-item ${isWeekend ? 'weekend' : ''} ${dateStr === selectedDate ? 'active' : ''}`;
+      pill.onclick = () => selectDay(dateStr, d);
+      pill.innerHTML = `
+        <span class="day-name">${dayName}</span>
+        <span class="day-num">${dayNum}</span>
+      `;
+      strip.appendChild(pill);
+    }
+  }
+
+  function selectDay(dateStr, dateObj) {
+    selectedDate = dateStr;
+    const parts = dateStr.split(".");
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const isToday = (dateStr === getTodayFormatted());
+    document.getElementById("currentDateTitle").innerText = `${day} ${MONTHS_GENITIVE[month]}${isToday ? ' (сегодня)' : ''}`;
+    
+    if (dateObj) {
+      const yyyy = dateObj.getFullYear();
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dateObj.getDate()).padStart(2, '0');
+      const dateInput = document.getElementById("nativeDatePicker");
+      if (dateInput) dateInput.value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    renderWeekdayStrip();
+    loadJournal(selectedDate);
+  }
+
+  // 5. LOAD JOURNAL DATA FROM API (OR LOCAL CACHE)
+  async function loadJournal(dateStr) {
+    try {
+      const resp = await fetch(`/api/staff/journal?date=${dateStr}`);
+      if (resp.ok) {
+        journalData = await resp.json();
+        renderGridColumns(journalData);
+      } else {
+        renderGridColumnsFallback();
+      }
+    } catch (e) {
+      console.warn("Using local fallback journal data:", e);
+      renderGridColumnsFallback();
+    }
+  }
+
+  // 6. RENDER MASTER COLUMNS & CARDS
+  function renderGridColumns(data) {
+    const wrap = document.getElementById("mastersColumnsWrap");
+    wrap.innerHTML = "";
+
+    const activeMasters = MASTERS.filter(m => masterFilter === "all" || masterFilter === m.name);
+
+    activeMasters.forEach((m, idx) => {
+      const col = document.createElement("div");
+      col.className = `master-column ${m.stripedTop ? 'striped-top' : ''}`;
+      col.id = `col_${m.id}`;
+
+      // Hour background grid lines
+      for (let h = START_HOUR; h <= END_HOUR; h++) {
+        const topPx = (h - START_HOUR) * HOUR_HEIGHT;
+        const line = document.createElement("div");
+        line.className = "hour-grid-line";
+        line.style.top = `${topPx}px`;
+        col.appendChild(line);
+      }
+
+      // 40-minute slot divider lines
+      const totalMinutes = TOTAL_HOURS * 60;
+      for (let minOffset = 40; minOffset < totalMinutes; minOffset += 40) {
+        const slotLine = document.createElement("div");
+        slotLine.className = "slot-divider-line";
+        slotLine.style.top = `${minOffset * MINUTE_PIXELS}px`;
+        col.appendChild(slotLine);
+      }
+
+      // Find appointments & blocked slots for this master
+      const masterData = data.masters ? data.masters.find(x => x.name.toLowerCase() === m.name.toLowerCase()) : null;
+
+      // Click on empty space in column: automatically snaps time & sets 40 min range
+      col.onclick = (e) => {
+        if (e.target.closest('.appointment-card') || e.target.closest('.blocked-slot-card')) return;
+        const rect = col.getBoundingClientRect();
+        const clickY = e.clientY - rect.top;
+        const clickMinutes = Math.max(0, clickY / MINUTE_PIXELS);
+
+        // Snap to nearest standard 40-minute slot from START_HOUR (09:00)
+        const slotIdx = Math.max(0, Math.floor(clickMinutes / 40));
+        let snappedMinutes = slotIdx * 40;
+
+        // Intelligent snap: if clicked within 15 mins after an existing booking or break ends, snap right to its end
+        if (masterData) {
+          const allItems = [
+            ...(masterData.appointments || []).map(a => ({ time: a.time || a.booking_time, dur: a.duration || 40 })),
+            ...(masterData.blocked_slots || []).map(b => ({ time: b.time || b.booking_time, dur: b.duration || 40 }))
+          ];
+          for (const item of allItems) {
+            if (!item.time) continue;
+            const parts = item.time.split(":");
+            const ih = parseInt(parts[0], 10);
+            const im = parseInt(parts[1], 10);
+            const itemEndMin = (ih - START_HOUR) * 60 + im + item.dur;
+            if (clickMinutes >= itemEndMin && clickMinutes <= itemEndMin + 15) {
+              snappedMinutes = itemEndMin;
+              break;
+            }
+          }
+        }
+
+        snappedMinutes = Math.max(0, Math.min(snappedMinutes, TOTAL_HOURS * 60 - 20));
+        const hour = START_HOUR + Math.floor(snappedMinutes / 60);
+        const min = snappedMinutes % 60;
+        const startTime = `${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+        const endTime = addMinutesToTime(startTime, 40);
+        openNewBookingModal(m.name, startTime, endTime, 'grid_click');
+      };
+      
+      if (masterData) {
+        const items = [];
+        if (masterData.appointments) {
+          masterData.appointments.forEach(app => {
+            const parts = (app.time || app.booking_time).split(":");
+            const startMin = (parseInt(parts[0], 10) - START_HOUR) * 60 + parseInt(parts[1], 10);
+            const durationMin = app.duration || 40;
+            const card = createAppointmentCard(app);
+            if (card) items.push({ type: 'app', startMin, durationMin, el: card });
+          });
+        }
+        if (masterData.blocked_slots) {
+          masterData.blocked_slots.forEach(blk => {
+            const parts = (blk.time || blk.booking_time).split(":");
+            const startMin = (parseInt(parts[0], 10) - START_HOUR) * 60 + parseInt(parts[1], 10);
+            const durationMin = blk.duration || 40;
+            const card = createBlockedSlotCard(blk);
+            if (card) items.push({ type: 'blk', startMin, durationMin, el: card });
+          });
+        }
+
+        // Sort items by startMin
+        items.sort((a, b) => a.startMin - b.startMin || b.durationMin - a.durationMin);
+
+        // Render with side-by-side overlap positioning so cards never cover each other
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const itemEnd = item.startMin + item.durationMin;
+
+          const cluster = [item];
+          for (let j = 0; j < items.length; j++) {
+            if (i === j) continue;
+            const other = items[j];
+            const otherEnd = other.startMin + other.durationMin;
+            if (Math.max(item.startMin, other.startMin) < Math.min(itemEnd, otherEnd)) {
+              cluster.push(other);
+            }
+          }
+
+          if (cluster.length > 1) {
+            cluster.sort((a, b) => a.startMin - b.startMin);
+            const colIndex = cluster.indexOf(item);
+            const colCount = cluster.length;
+            const widthPct = (100 / colCount);
+            item.el.style.left = `calc(${colIndex * widthPct}% + 2px)`;
+            item.el.style.width = `calc(${widthPct}% - 4px)`;
+            item.el.style.right = 'auto';
+          } else {
+            item.el.style.left = '3px';
+            item.el.style.right = '3px';
+            item.el.style.width = 'auto';
+          }
+
+          col.appendChild(item.el);
+        }
+      }
+
+      wrap.appendChild(col);
+    });
+
+    // Update stats modal
+    if (data.stats) {
+      document.getElementById("statTotalRev").innerText = `${data.stats.total_revenue || 0} руб`;
+      document.getElementById("statTotalClients").innerText = data.stats.total_clients || 0;
+      document.getElementById("statUpsells").innerText = data.stats.upsell_count || 0;
+    }
+  }
+
+  // 7. CREATE APPOINTMENT CARD (BLUE = ONLINE TG, GREEN = MANUAL)
+  function createAppointmentCard(app) {
+    const timeParts = app.booking_time.split(":");
+    const h = parseInt(timeParts[0], 10);
+    const m = parseInt(timeParts[1], 10);
+
+    const startMinutes = (h - START_HOUR) * 60 + m;
+    if (startMinutes < 0 || startMinutes > TOTAL_HOURS * 60) return null;
+
+    const topPx = Math.round(startMinutes * MINUTE_PIXELS) + 1;
+    const durationMin = app.duration || 40; // Default 40 min per slot
+    const heightPx = Math.max(Math.round(durationMin * MINUTE_PIXELS) - 2, 22);
+
+    // End time string
+    const endMinutes = (h * 60 + m) + durationMin;
+    const endH = String(Math.floor(endMinutes / 60)).padStart(2, '0');
+    const endM = String(endMinutes % 60).padStart(2, '0');
+    const timeRangeStr = `${app.booking_time}-${endH}:${endM}`;
+
+    // Color theme only (No extra labels):
+    // Online via TG -> BLUE (СИНИЙ)
+    // Manual -> GREEN (ЗЕЛЕНЫЙ)
+    const isOnline = (app.source === 'online') || (app.user_id && app.user_id > 0);
+    const cardClass = isOnline ? "appointment-card online-card" : "appointment-card manual-card";
+
+    const card = document.createElement("div");
+    card.className = cardClass;
+    card.style.top = `${topPx}px`;
+    card.style.height = `${heightPx}px`;
+    card.onclick = (e) => {
+      e.stopPropagation();
+      openAppointmentDetails(app, timeRangeStr);
+    };
+
+    card.innerHTML = `
+      <div class="card-header-strip">
+        <span>${timeRangeStr}</span>
+        <span class="card-clock-icon">🕒</span>
+      </div>
+      <div class="card-body">
+        <div class="card-client-name">${escapeHtml(app.user_name || "Гость")}</div>
+        ${app.phone && app.phone !== 'Не указан' ? `<div class="card-client-phone">${escapeHtml(app.phone)}</div>` : ''}
+        <div class="card-service-title">${escapeHtml(app.service || "Стрижка")}</div>
+      </div>
+    `;
+    return card;
+  }
+
+  // 8. CREATE BLOCKED SLOT CARD (Поддержка 20 мин, 30 мин, 40 мин перерывов)
+  function createBlockedSlotCard(blk) {
+    const timeParts = blk.booking_time.split(":");
+    const h = parseInt(timeParts[0], 10);
+    const m = parseInt(timeParts[1], 10);
+
+    const startMinutes = (h - START_HOUR) * 60 + m;
+    if (startMinutes < 0) return null;
+
+    const durationMin = blk.duration || 40;
+    const topPx = Math.round(startMinutes * MINUTE_PIXELS) + 1;
+    const heightPx = Math.max(Math.round(durationMin * MINUTE_PIXELS) - 2, 20);
+
+    const card = document.createElement("div");
+    card.className = "blocked-slot-card";
+    card.style.top = `${topPx}px`;
+    card.style.height = `${heightPx}px`;
+    card.innerHTML = `<span>🔒 ${escapeHtml(blk.reason || "Перерыв")} (${durationMin} мин)</span>`;
+    card.onclick = (e) => {
+      e.stopPropagation();
+      if (confirm(`Снять перерыв на ${blk.booking_time} (${durationMin} мин)? Слот снова станет доступен для клиентов.`)) {
+        unblockSlot(blk.barber, selectedDate, blk.booking_time);
+      }
+    };
+    return card;
+  }
+
+  // 9. LIVE RED TIME LINE INDICATOR
+  function updateLiveTimeIndicator() {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+
+    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const clock = document.getElementById("liveTimeClock");
+    if (clock) clock.innerText = timeStr;
+
+    const ind = document.getElementById("liveTimeIndicator");
+    const bubble = document.getElementById("liveTimeBubble");
+
+    // Only show line if current day is today and time is between 10:00 and 21:00
+    const isToday = (selectedDate === getTodayFormatted());
+    if (isToday && h >= START_HOUR && h <= END_HOUR) {
+      const minutesFromStart = (h - START_HOUR) * 60 + m;
+      const topPx = minutesFromStart * MINUTE_PIXELS;
+      ind.style.display = "flex";
+      ind.style.top = `${topPx}px`;
+      bubble.innerText = timeStr;
+    } else {
+      ind.style.display = "none";
+    }
+  }
+
+  // 10. OPEN APPOINTMENT DETAILS SHEET
+  function openAppointmentDetails(app, timeRangeStr) {
+    activeAppointmentId = app.id;
+    const isOnline = (app.source === 'online') || (app.user_id && app.user_id > 0);
+
+    document.getElementById("dtlClientName").innerText = app.user_name || "Гость";
+    document.getElementById("dtlPhone").innerText = app.phone || "Не указан";
+    document.getElementById("dtlPrice").innerText = `${app.total_price || 200} руб`;
+    
+    document.getElementById("dtlStatus").innerText = app.confirmed ? "✅ Подтверждена" : "⏳ Ожидает визита";
+    document.getElementById("dtlService").innerText = app.service || "Стрижка";
+    document.getElementById("dtlExtras").innerText = app.extra_services || "Нет";
+    document.getElementById("dtlBarber").innerText = app.barber || "Yakov";
+    document.getElementById("dtlTime").innerText = timeRangeStr || app.booking_time;
+    document.getElementById("dtlDate").innerText = app.booking_date || selectedDate;
+    
+    const callLink = document.getElementById("dtlCallLink");
+    if (app.phone && app.phone !== "Не указан") {
+      callLink.href = `tel:${app.phone.replace(/[^0-9+]/g, '')}`;
+      callLink.style.display = "inline-flex";
+    } else {
+      callLink.style.display = "none";
+    }
+
+    openModal("appDetailsModal");
+  }
+
+  // 11. CANCEL APPOINTMENT
+  async function cancelCurrentAppointment() {
+    if (!activeAppointmentId) return;
+    if (!confirm("Вы уверены, что хотите отменить эту запись? Слот освободится.")) return;
+
+    try {
+      const resp = await fetch("/api/staff/cancel-appointment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: activeAppointmentId })
+      });
+      if (resp.ok) {
+        closeModal("appDetailsModal");
+        loadJournal(selectedDate);
+      } else {
+        alert("Ошибка отмены записи");
+      }
+    } catch (e) {
+      alert("Ошибка сети");
+    }
+  }
+
+  // Helper: select master by name in <select>
+  function setSelectMaster(selectId, masterName) {
+    const sel = document.getElementById(selectId);
+    if (!sel || !masterName) return;
+    const cleanTarget = masterName.trim().toLowerCase();
+    for (let i = 0; i < sel.options.length; i++) {
+      const optVal = sel.options[i].value.trim().toLowerCase();
+      const optText = sel.options[i].text.trim().toLowerCase();
+      if (optVal === cleanTarget || optText.includes(cleanTarget) || cleanTarget.includes(optVal)) {
+        sel.selectedIndex = i;
+        return;
+      }
+    }
+  }
+
+  function setTimeValue(inputId, timeStr) {
+    const el = document.getElementById(inputId);
+    if (!el || !timeStr) return;
+    el.value = timeStr.trim();
+  }
+
+  // Helper: compute time + minutes -> HH:MM
+  function addMinutesToTime(timeStr, minutes) {
+    if (!timeStr) return "12:40";
+    const parts = timeStr.split(":");
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    const total = h * 60 + m + minutes;
+    const newH = Math.floor(total / 60) % 24;
+    const newM = total % 60;
+    return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+  }
+
+  // Helper: compute difference in minutes between two HH:MM strings
+  function getMinutesDiff(startStr, endStr) {
+    if (!startStr || !endStr) return 40;
+    const sParts = startStr.split(":");
+    const eParts = endStr.split(":");
+    const sMin = (parseInt(sParts[0], 10) || 0) * 60 + (parseInt(sParts[1], 10) || 0);
+    const eMin = (parseInt(eParts[0], 10) || 0) * 60 + (parseInt(eParts[1], 10) || 0);
+    const diff = eMin - sMin;
+    return diff > 0 ? diff : 40;
+  }
+
+  function setQuickDuration(type, mins) {
+    if (type === 'app') {
+      const start = document.getElementById("newAppTime").value || "12:00";
+      const end = addMinutesToTime(start, mins);
+      setTimeValue("newAppEndTime", end);
+      onTimeRangeChanged('app');
+    } else {
+      const start = document.getElementById("breakTime").value || "12:00";
+      const end = addMinutesToTime(start, mins);
+      setTimeValue("breakEndTime", end);
+      onTimeRangeChanged('break');
+    }
+  }
+
+  function updateQuickDurPills(type, currentDiff) {
+    const containerId = type === 'app' ? 'appDurPills' : 'breakDurPills';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.querySelectorAll('.quick-dur-pill').forEach(btn => {
+      const d = parseInt(btn.getAttribute("data-dur"), 10);
+      if (d === currentDiff) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+  }
+
+  function onTimeRangeChanged(type) {
+    if (type === 'app') {
+      const start = document.getElementById("newAppTime").value;
+      const endEl = document.getElementById("newAppEndTime");
+      let end = endEl ? endEl.value : "";
+      if (!end || end <= start) {
+        end = addMinutesToTime(start, 40);
+        if (endEl) endEl.value = end;
+      }
+      const diff = getMinutesDiff(start, end);
+      const durEl = document.getElementById("newAppDuration");
+      if (durEl) durEl.value = diff;
+      const badge = document.getElementById("appDurationBadge");
+      if (badge) badge.innerText = `⏱ Длительность: ${diff} мин (${start} – ${end})`;
+      const noticeText = document.getElementById("gridTimeNoticeText");
+      if (noticeText) noticeText.innerText = `${start} — ${end} (${diff} мин)`;
+      updateQuickDurPills('app', diff);
+      updateModalActionButtons(start, end);
+    } else {
+      const start = document.getElementById("breakTime").value;
+      const endEl = document.getElementById("breakEndTime");
+      let end = endEl ? endEl.value : "";
+      if (!end || end <= start) {
+        end = addMinutesToTime(start, 20);
+        if (endEl) endEl.value = end;
+      }
+      const diff = getMinutesDiff(start, end);
+      const badge = document.getElementById("breakDurationBadge");
+      if (badge) badge.innerText = `⏱ Длительность: ${diff} мин (${start} – ${end})`;
+      const noticeText = document.getElementById("gridBreakTimeNoticeText");
+      if (noticeText) noticeText.innerText = `${start} — ${end} (${diff} мин)`;
+      updateQuickDurPills('break', diff);
+      updateModalActionButtons(start, end);
+    }
+  }
+
+  function updateModalActionButtons(start, end) {
+    const timeLabel = end ? `${start} – ${end}` : start;
+    const btnApp = document.getElementById("btnSubmitNewApp");
+    const btnBreak = document.getElementById("btnSubmitBreak");
+    if (btnApp) btnApp.innerText = `💾 Записать на ${timeLabel}`;
+    if (btnBreak) btnBreak.innerText = `🔒 Закрыть ${timeLabel} (перерыв)`;
+  }
+
+  function syncTimeAndMaster() {
+    const appBarber = document.getElementById("newAppBarber");
+    const breakBarber = document.getElementById("breakBarber");
+
+    if (appBarber && breakBarber) {
+      appBarber.addEventListener("change", () => {
+        setSelectMaster("breakBarber", appBarber.value);
+      });
+      breakBarber.addEventListener("change", () => {
+        if (breakBarber.value !== "all") {
+          setSelectMaster("newAppBarber", breakBarber.value);
+        }
+      });
+    }
+  }
+
+  function onQuickPlusClick() {
+    const activeMaster = (masterFilter && masterFilter !== 'all') ? masterFilter : (MASTERS[0] ? MASTERS[0].name : 'Yakov');
+    const now = new Date();
+    let h = now.getHours();
+    let m = Math.floor(now.getMinutes() / 10) * 10;
+    if (h < START_HOUR || h >= END_HOUR) {
+      h = 9;
+      m = 0;
+    }
+    const startTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const endTime = addMinutesToTime(startTime, 40);
+    openNewBookingModal(activeMaster, startTime, endTime, 'plus_click');
+  }
+
+  // 12. QUICK ADD MODAL
+  function openNewBookingModal(defaultMaster, defaultStart, defaultEnd, triggerMode = 'grid_click') {
+    if (defaultMaster) {
+      setSelectMaster("newAppBarber", defaultMaster);
+      setSelectMaster("breakBarber", defaultMaster);
+    }
+
+    const startTime = defaultStart || "12:00";
+    const endTime = defaultEnd || addMinutesToTime(startTime, 40);
+    const breakEndTime = addMinutesToTime(startTime, 20); // Default break is 20 min
+
+    setTimeValue("newAppTime", startTime);
+    setTimeValue("newAppEndTime", endTime);
+    setTimeValue("breakTime", startTime);
+    setTimeValue("breakEndTime", breakEndTime);
+
+    onTimeRangeChanged('app');
+    onTimeRangeChanged('break');
+
+    const subTitle = document.getElementById("quickModalSubtitle");
+    const gridNotice = document.getElementById("gridTimeNotice");
+    const gridBreakNotice = document.getElementById("gridBreakTimeNotice");
+    const diffMin = getMinutesDiff(startTime, endTime);
+
+    if (triggerMode === 'grid_click') {
+      if (subTitle) {
+        subTitle.innerText = `📍 Слот с экрана: ${defaultMaster} • ${startTime} – ${endTime} (${selectedDate})`;
+        subTitle.style.display = "block";
+      }
+      if (gridNotice) {
+        const noticeText = document.getElementById("gridTimeNoticeText");
+        if (noticeText) noticeText.innerText = `${startTime} — ${endTime} (${diffMin} мин)`;
+        gridNotice.style.display = "flex";
+      }
+      if (gridBreakNotice) {
+        const breakNoticeText = document.getElementById("gridBreakTimeNoticeText");
+        if (breakNoticeText) breakNoticeText.innerText = `${startTime} — ${breakEndTime} (20 мин)`;
+        gridBreakNotice.style.display = "flex";
+      }
+    } else {
+      if (subTitle) {
+        subTitle.innerText = `➕ Новая запись (выберите начало и конец)`;
+        subTitle.style.display = "block";
+      }
+      if (gridNotice) {
+        gridNotice.style.display = "none";
+      }
+      if (gridBreakNotice) {
+        gridBreakNotice.style.display = "none";
+      }
+    }
+
+    const phoneErr = document.getElementById("phoneError");
+    const phoneInput = document.getElementById("newAppPhone");
+    if (phoneErr) phoneErr.style.display = "none";
+    if (phoneInput) {
+      phoneInput.style.borderColor = "";
+      phoneInput.value = "";
+    }
+
+    switchQuickAddTab('booking');
+    openModal("quickAddModal");
+
+    if (triggerMode === 'grid_click') {
+      setTimeout(() => {
+        const clientInput = document.getElementById("newAppClient");
+        if (clientInput) clientInput.focus();
+      }, 150);
+    }
+  }
+
+  function switchQuickAddTab(tab) {
+    const bookingSection = document.getElementById("bookingFormSection");
+    const breakSection = document.getElementById("breakFormSection");
+    const tabBookingBtn = document.getElementById("tabBookingBtn");
+    const tabBreakBtn = document.getElementById("tabBreakBtn");
+
+    if (tab === 'booking') {
+      bookingSection.style.display = "block";
+      breakSection.style.display = "none";
+      tabBookingBtn.className = "modal-tab-btn tab-booking active";
+      tabBreakBtn.className = "modal-tab-btn tab-break";
+      onTimeRangeChanged('app');
+    } else {
+      bookingSection.style.display = "none";
+      breakSection.style.display = "block";
+      tabBookingBtn.className = "modal-tab-btn tab-booking";
+      tabBreakBtn.className = "modal-tab-btn tab-break active";
+      onTimeRangeChanged('break');
+    }
+  }
+
+  function initPhoneMask() {
+    const input = document.getElementById("newAppPhone");
+    const phoneErr = document.getElementById("phoneError");
+    if (!input) return;
+
+    input.addEventListener("input", () => {
+      // Strip everything except digits
+      let digits = input.value.replace(/\D/g, '');
+      if (digits.startsWith('373')) {
+        digits = digits.substring(3);
+      } else if (digits.startsWith('0')) {
+        digits = digits.substring(1);
+      }
+
+      if (digits.length > 8) {
+        digits = digits.substring(0, 8);
+      }
+
+      if (digits.length === 0) {
+        input.value = '+373 ';
+      } else if (digits.length <= 3) {
+        input.value = `+373 ${digits}`;
+      } else if (digits.length <= 6) {
+        input.value = `+373 ${digits.substring(0, 3)} ${digits.substring(3)}`;
+      } else {
+        input.value = `+373 ${digits.substring(0, 3)} ${digits.substring(3, 6)}-${digits.substring(6)}`;
+      }
+
+      if (digits.length === 8) {
+        if (phoneErr) phoneErr.style.display = "none";
+        input.style.borderColor = "#10B981";
+      } else {
+        input.style.borderColor = "";
+      }
+    });
+
+    input.addEventListener("focus", () => {
+      const digits = input.value.replace(/\D/g, '').replace(/^373/, '');
+      if (!input.value.trim() || digits.length === 0) {
+        input.value = '+373 ';
+      }
+    });
+
+    input.addEventListener("blur", () => {
+      const digits = input.value.replace(/\D/g, '').replace(/^373/, '');
+      if (digits.length === 0) {
+        input.value = '';
+        if (phoneErr) phoneErr.style.display = "none";
+        input.style.borderColor = "";
+      }
+    });
+
+    input.addEventListener("keydown", (e) => {
+      // Prevent deleting the '+373 ' prefix
+      if ((e.key === "Backspace" || e.key === "Delete") && input.selectionStart <= 5 && input.selectionEnd <= 5) {
+        e.preventDefault();
+      }
+    });
+  }
+
+  async function submitNewAppointment() {
+    const barber = document.getElementById("newAppBarber").value;
+    const time = document.getElementById("newAppTime").value;
+    const endTime = document.getElementById("newAppEndTime").value;
+    const duration = getMinutesDiff(time, endTime);
+    const clientName = document.getElementById("newAppClient").value.trim() || "Гость";
+    
+    // Phone validation: optional! If entered, must have strictly 8 digits
+    const phoneInput = document.getElementById("newAppPhone");
+    const phoneErr = document.getElementById("phoneError");
+    const rawPhone = phoneInput ? phoneInput.value.trim() : "";
+    let digits = rawPhone.replace(/\D/g, '');
+    if (digits.startsWith('373')) {
+      digits = digits.substring(3);
+    } else if (digits.startsWith('0')) {
+      digits = digits.substring(1);
+    }
+
+    let phone = "";
+    if (digits.length > 0) {
+      if (digits.length !== 8) {
+        if (phoneErr) {
+          phoneErr.innerText = `⚠️ Номер должен начинаться с +373 и содержать ровно 8 цифр (введено: ${digits.length} из 8)`;
+          phoneErr.style.display = "block";
+        }
+        if (phoneInput) {
+          phoneInput.style.borderColor = "#EF4444";
+          phoneInput.focus();
+        }
+        return;
+      }
+      phone = `+373 ${digits.substring(0, 3)} ${digits.substring(3, 6)}-${digits.substring(6, 8)}`;
+    }
+
+    if (phoneErr) phoneErr.style.display = "none";
+    if (phoneInput) phoneInput.style.borderColor = "";
+    const serviceEl = document.getElementById("newAppService");
+    const service = serviceEl ? serviceEl.value : "Стрижка";
+    const priceEl = document.getElementById("newAppPrice");
+    const price = priceEl ? (parseInt(priceEl.value, 10) || 200) : 200;
+    const source = "manual";
+
+    const payload = {
+      barber: barber,
+      date: selectedDate,
+      time: time,
+      duration: duration,
+      client_name: clientName,
+      phone: phone,
+      service: service,
+      total_price: price,
+      source: source
+    };
+
+    try {
+      const resp = await fetch("/api/staff/add-appointment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (resp.ok) {
+        closeModal("quickAddModal");
+        document.getElementById("newAppClient").value = "";
+        document.getElementById("newAppPhone").value = "";
+        if (phoneErr) phoneErr.style.display = "none";
+        loadJournal(selectedDate);
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        alert(err.message || "Не удалось создать запись (возможно, слот занят)");
+      }
+    } catch (e) {
+      alert("Ошибка отправки данных");
+    }
+  }
+
+  async function submitBlockSlot() {
+    const barber = document.getElementById("breakBarber").value;
+    const time = document.getElementById("breakTime").value;
+    const endTime = document.getElementById("breakEndTime").value;
+    const duration = getMinutesDiff(time, endTime);
+    const reason = document.getElementById("breakReason").value.trim() || "Перерыв";
+
+    try {
+      const resp = await fetch("/api/staff/block-slot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ barber, date: selectedDate, time, duration, reason })
+      });
+      if (resp.ok) {
+        closeModal("quickAddModal");
+        loadJournal(selectedDate);
+      }
+    } catch (e) {
+      alert("Ошибка закрытия слота");
+    }
+  }
+
+  async function unblockSlot(barber, dateStr, timeStr) {
+    try {
+      const resp = await fetch("/api/staff/unblock-slot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ barber, date: dateStr, time: timeStr })
+      });
+      if (resp.ok) {
+        loadJournal(selectedDate);
+      }
+    } catch (e) {
+      alert("Ошибка снятия перерыва");
+    }
+  }
+
+  // 13. STATS & REVENUE MODAL
+  function openStatsModal() {
+    openModal("statsModal");
+  }
+
+  // Master filter toggle
+  function toggleMasterFilter() {
+    if (masterFilter === "all") masterFilter = "Yakov";
+    else if (masterFilter === "Yakov") masterFilter = "Рувим";
+    else if (masterFilter === "Рувим") masterFilter = "Лиза";
+    else masterFilter = "all";
+
+    document.getElementById("filterLabel").innerText = (masterFilter === "all") ? "👥 Все" : `👤 ${masterFilter}`;
+    renderMasterHeaders();
+    if (journalData) renderGridColumns(journalData);
+  }
+
+  function filterByMaster(name) {
+    masterFilter = (masterFilter === name) ? "all" : name;
+    document.getElementById("filterLabel").innerText = (masterFilter === "all") ? "👥 Все" : `👤 ${masterFilter}`;
+    renderMasterHeaders();
+    if (journalData) renderGridColumns(journalData);
+  }
+
+  // Modal helpers
+  function openModal(id) {
+    document.getElementById(id).classList.add("open");
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove("open");
+  }
+
+  function closeModalOnBackdrop(e, id) {
+    if (e.target.id === id) closeModal(id);
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.innerText = text;
+    return div.innerHTML;
+  }
+
+  // 14. VIDEOS MODAL & API
+  async function openVideosModal() {
+    openModal("videosModal");
+    await loadVideosList();
+  }
+
+  function toggleAddVideoForm() {
+    const box = document.getElementById("addVideoFormBox");
+    const isHidden = box.style.display === "none";
+    box.style.display = isHidden ? "block" : "none";
+    document.getElementById("toggleAddVideoBtnText").innerText = isHidden ? "✕ Скрыть форму" : "➕ Добавить видео";
+  }
+
+  function previewSelectedVideo(e) {
+    const file = e.target.files[0];
+    const previewWrap = document.getElementById("videoUploadPreview");
+    const previewPlayer = document.getElementById("videoPreviewPlayer");
+    if (file) {
+      previewPlayer.src = URL.createObjectURL(file);
+      previewWrap.style.display = "block";
+    } else {
+      previewWrap.style.display = "none";
+    }
+  }
+
+  async function loadVideosList() {
+    const grid = document.getElementById("videosGalleryGrid");
+    grid.innerHTML = '<div style="text-align:center; padding:20px; color:#64748B;">Загрузка видео...</div>';
+
+    try {
+      const resp = await fetch("/api/portfolio");
+      const data = await resp.json();
+      const works = data.works || [];
+
+      if (works.length === 0) {
+        grid.innerHTML = `
+          <div style="text-align: center; padding: 40px 16px; color: #64748B;">
+            <div style="font-size: 36px; margin-bottom: 8px;">🎬</div>
+            <div style="font-size: 15px; font-weight: 700; color: #0F172A;">Видео пока нет</div>
+            <div style="font-size: 13px; margin-top: 4px;">Нажмите «➕ Добавить видео», чтобы опубликовать первую работу!</div>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = "";
+      works.forEach(w => {
+        const card = document.createElement("div");
+        card.className = "video-card-item";
+        card.innerHTML = `
+          <video class="video-card-player" src="${escapeHtml(w.video_url || w.image_url)}" controls playsinline preload="metadata" poster="${escapeHtml(w.image_url || '/static/img/hero-bg.jpg')}"></video>
+          <div class="video-card-info">
+            <div class="video-card-details">
+              <div class="video-card-title">${escapeHtml(w.caption || "Стрижка")}</div>
+              <div class="video-card-master">💈 Мастер: <b>${escapeHtml(w.barber_name || "Yakov")}</b></div>
+            </div>
+            <button class="video-btn-delete" onclick="deleteVideoWork(${w.id})">
+              🗑️ Удалить
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    } catch (e) {
+      grid.innerHTML = '<div style="text-align:center; padding:20px; color:#DC2626;">Ошибка загрузки видео</div>';
+    }
+  }
+
+  async function submitNewVideo() {
+    const barber = document.getElementById("newVideoBarber").value;
+    const caption = document.getElementById("newVideoCaption").value.trim() || "Работа мастера";
+    const fileInput = document.getElementById("newVideoFile");
+    const urlInput = document.getElementById("newVideoUrl");
+    const statusDiv = document.getElementById("videoUploadStatus");
+    const btn = document.getElementById("btnSubmitVideo");
+
+    const file = fileInput.files[0];
+    const videoUrl = urlInput.value.trim();
+
+    if (!file && !videoUrl) {
+      alert("Пожалуйста, выберите файл видео или введите ссылку!");
+      return;
+    }
+
+    btn.disabled = true;
+    statusDiv.style.display = "block";
+    statusDiv.style.color = "#2563EB";
+    statusDiv.innerText = "⏳ Идет загрузка видео, пожалуйста, подождите...";
+
+    try {
+      let resp;
+      if (file) {
+        const formData = new FormData();
+        formData.append("video", file);
+        formData.append("barber", barber);
+        formData.append("caption", caption);
+        resp = await fetch("/api/staff/upload-video", {
+          method: "POST",
+          body: formData
+        });
+      } else {
+        resp = await fetch("/api/staff/upload-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ barber, caption, video_url: videoUrl })
+        });
+      }
+
+      const resData = await resp.json();
+      if (resp.ok && resData.status === "ok") {
+        statusDiv.style.color = "#15803D";
+        statusDiv.innerText = "✅ Видео успешно опубликовано!";
+        fileInput.value = "";
+        urlInput.value = "";
+        document.getElementById("newVideoCaption").value = "";
+        document.getElementById("videoUploadPreview").style.display = "none";
+        setTimeout(() => {
+          toggleAddVideoForm();
+          statusDiv.style.display = "none";
+          loadVideosList();
+        }, 800);
+      } else {
+        statusDiv.style.color = "#DC2626";
+        statusDiv.innerText = "❌ Ошибка: " + (resData.message || "Не удалось сохранить видео");
+      }
+    } catch (e) {
+      statusDiv.style.color = "#DC2626";
+      statusDiv.innerText = "❌ Ошибка отправки на сервер";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function deleteVideoWork(id) {
+    if (!confirm("Вы уверены, что хотите удалить это видео? Оно также исчезнет из Mini App клиентов.")) return;
+    try {
+      const resp = await fetch("/api/staff/delete-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      if (resp.ok) {
+        loadVideosList();
+      } else {
+        alert("Ошибка удаления видео");
+      }
+    } catch (e) {
+      alert("Ошибка сети при удалении");
+    }
+  }
+
+  // Fallback demo data (matches screenshot exactly if running standalone)
+  function renderGridColumnsFallback() {
+    const demoData = {
+      date: selectedDate,
+      masters: [
+        {
+          name: "Лиза",
+          appointments: [
+            { id: 101, user_name: "Даниил", phone: "+373 777 441-20", service: "Мужская стрижка", booking_time: "10:40", duration: 40, total_price: 150, confirmed: 1, source: "online" },
+            { id: 102, user_name: "Ваня", phone: "+373 778 331-19", service: "Детская стрижка", booking_time: "11:20", duration: 40, total_price: 150, confirmed: 0, source: "manual" },
+            { id: 103, user_name: "Михаил", phone: "+373 777 112-99", service: "Стрижка ножницы", booking_time: "12:00", duration: 40, total_price: 150, confirmed: 1, source: "online" },
+            { id: 104, user_name: "Кирилл", phone: "+373 778 440-12", service: "Стрижка Fade", booking_time: "14:00", duration: 40, total_price: 150, confirmed: 0, source: "manual" }
+          ],
+          blocked_slots: [
+            { barber: "Лиза", booking_time: "10:00", reason: "Подготовка" },
+            { barber: "Лиза", booking_time: "13:20", reason: "Обед" }
+          ]
+        },
+        {
+          name: "Yakov",
+          appointments: [
+            { id: 201, user_name: "Саша", phone: "+373 779 844-21", service: "Мужская стрижка", booking_time: "10:00", duration: 40, total_price: 200, confirmed: 1, source: "online" },
+            { id: 202, user_name: "Святик", phone: "+373 778 112-33", service: "Стрижка + борода", booking_time: "10:40", duration: 40, total_price: 320, confirmed: 1, source: "online" },
+            { id: 203, user_name: "Эдуард", phone: "+373 778 742-08", service: "Классическая", booking_time: "12:00", duration: 40, total_price: 200, confirmed: 1, source: "manual" },
+            { id: 204, user_name: "Артур", phone: "+373 777 964-86", service: "Стрижка Fade", booking_time: "12:40", duration: 40, total_price: 200, confirmed: 0, source: "online" },
+            { id: 205, user_name: "Петя", phone: "+373 779 043-47", service: "Стрижка", booking_time: "13:20", duration: 40, total_price: 200, confirmed: 0, source: "manual" },
+            { id: 206, user_name: "Славик", phone: "+373 778 554-10", service: "Стрижка ножницами", booking_time: "14:40", duration: 40, total_price: 200, confirmed: 0, source: "manual" }
+          ],
+          blocked_slots: [
+            { barber: "Yakov", booking_time: "11:20", reason: "Перерыв" }
+          ]
+        },
+        {
+          name: "Рувим",
+          appointments: [
+            { id: 301, user_name: "Руслан", phone: "+373 775 554-12", service: "Мужская стрижка", booking_time: "10:40", duration: 40, total_price: 200, confirmed: 1, source: "manual" },
+            { id: 302, user_name: "Андрей", phone: "+373 779 123-45", service: "Стрижка + укладка", booking_time: "11:20", duration: 40, total_price: 250, confirmed: 1, source: "online" },
+            { id: 303, user_name: "Олег", phone: "+373 778 998-00", service: "Мужская стрижка", booking_time: "12:00", duration: 40, total_price: 200, confirmed: 0, source: "online" },
+            { id: 304, user_name: "Максим", phone: "+373 777 889-11", service: "Стрижка Fade", booking_time: "14:40", duration: 40, total_price: 200, confirmed: 0, source: "manual" }
+          ],
+          blocked_slots: [
+            { barber: "Рувим", booking_time: "10:00", reason: "Подготовка" },
+            { barber: "Рувим", booking_time: "12:40", reason: "Обед" }
+          ]
+        }
+      ],
+      stats: {
+        total_clients: 14,
+        total_revenue: 2770,
+        upsell_count: 2
+      }
+    };
+    renderGridColumns(demoData);
+  }
+</script>
+</body>
+</html>

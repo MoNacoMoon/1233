@@ -11,3 +11,6 @@ ENV/
 *.db
 barbershop.db
 *.log
+portfolio_media/
+run_local.bat
+run_local.py

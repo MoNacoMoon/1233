@@ -1576,15 +1576,24 @@
       <div class="section-meta">Свободные слоты</div>
     </div>
     <section class="slots-grid" id="bookingSlotsGrid">
-      <div class="slot-chip" data-time="10:00">10:00</div>
-      <div class="slot-chip" data-time="11:15">11:15</div>
-      <div class="slot-chip" data-time="12:30">12:30</div>
-      <div class="slot-chip" data-time="13:45">13:45</div>
+      <div class="slot-chip" data-time="09:00">09:00</div>
+      <div class="slot-chip" data-time="09:40">09:40</div>
+      <div class="slot-chip" data-time="10:20">10:20</div>
+      <div class="slot-chip" data-time="11:00">11:00</div>
+      <div class="slot-chip" data-time="11:40">11:40</div>
+      <div class="slot-chip" data-time="12:20">12:20</div>
+      <div class="slot-chip" data-time="13:00">13:00</div>
+      <div class="slot-chip" data-time="13:40">13:40</div>
+      <div class="slot-chip" data-time="14:20">14:20</div>
       <div class="slot-chip" data-time="15:00">15:00</div>
-      <div class="slot-chip" data-time="16:15">16:15</div>
-      <div class="slot-chip" data-time="17:30">17:30</div>
-      <div class="slot-chip" data-time="18:45">18:45</div>
-      <div class="slot-chip" data-time="20:00">20:00</div>
+      <div class="slot-chip" data-time="15:40">15:40</div>
+      <div class="slot-chip" data-time="16:20">16:20</div>
+      <div class="slot-chip" data-time="17:00">17:00</div>
+      <div class="slot-chip" data-time="17:40">17:40</div>
+      <div class="slot-chip" data-time="18:20">18:20</div>
+      <div class="slot-chip" data-time="19:00">19:00</div>
+      <div class="slot-chip" data-time="19:40">19:40</div>
+      <div class="slot-chip" data-time="20:20">20:20</div>
     </section>
 
     <!-- 5. Client Contacts Section -->
@@ -2459,7 +2468,8 @@
         price: `${pass.total} руб`,
         total_price: pass.total,
         date: pass.date,
-        time: pass.time
+        time: pass.time,
+        source: 'online'
       };
 
       // 1. Direct REST API call (guaranteed 100% to save in DB and notify Telegram)
