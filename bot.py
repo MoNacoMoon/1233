@@ -64,9 +64,18 @@ DEFAULT_MASTER_ID = "yakov"
 DEFAULT_MASTER_NAME = "Yakov"
 ALL_BARBERS = ["Yakov", "Рувим", "Лиза"]
 SCHEDULE_SLOTS = [
-    "09:00", "09:40", "10:20", "11:00", "11:40", "12:20", "13:00", "13:40",
-    "14:20", "15:00", "15:40", "16:20", "17:00", "17:40", "18:20", "19:00",
-    "19:40", "20:20"
+    "09:00", "09:20", "09:40",
+    "10:00", "10:20", "10:40",
+    "11:00", "11:20", "11:40",
+    "12:00", "12:20", "12:40",
+    "13:00", "13:20", "13:40",
+    "14:00", "14:20", "14:40",
+    "15:00", "15:20", "15:40",
+    "16:00", "16:20", "16:40",
+    "17:00", "17:20", "17:40",
+    "18:00", "18:20", "18:40",
+    "19:00", "19:20", "19:40",
+    "20:00", "20:20"
 ]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -899,7 +908,7 @@ def render_master_schedule_text(barber: str, date_str: str) -> str:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
-        SELECT booking_time, user_name, phone, service, total_price, extra_services, confirmed
+        SELECT booking_time, user_name, phone, service, total_price, extra_services, confirmed, COALESCE(duration, 40)
         FROM appointments
         WHERE barber = ? AND booking_date = ? AND status = 'active'
         ORDER BY booking_time ASC
@@ -908,12 +917,27 @@ def render_master_schedule_text(barber: str, date_str: str) -> str:
     app_map = {r[0]: r for r in app_rows}
 
     cur.execute("""
-        SELECT booking_time, reason
+        SELECT booking_time, reason, COALESCE(duration, 40)
         FROM blocked_slots
         WHERE (barber = ? OR barber = 'all') AND booking_date = ?
     """, (barber, date_str))
-    blk_map = {r[0]: r[1] for r in cur.fetchall()}
+    blk_rows = cur.fetchall()
+    blk_map = {r[0]: r[1] for r in blk_rows}
     conn.close()
+
+    busy_spans = []
+    for r in app_rows:
+        try:
+            h, m = map(int, r[0].split(':'))
+            busy_spans.append((h * 60 + m, h * 60 + m + (r[7] or 40)))
+        except Exception:
+            pass
+    for r in blk_rows:
+        try:
+            h, m = map(int, r[0].split(':'))
+            busy_spans.append((h * 60 + m, h * 60 + m + (r[2] or 40)))
+        except Exception:
+            pass
 
     total_clients = len(app_rows)
     total_rev = sum((r[4] or 0) for r in app_rows)
@@ -938,6 +962,13 @@ def render_master_schedule_text(barber: str, date_str: str) -> str:
             reason = blk_map[slot] or "Перерыв"
             lines.append(f"⛔ <b>{slot}</b> — [ПЕРЕРЫВ] <i>({html.escape(reason)})</i>")
         else:
+            try:
+                sh, sm = map(int, slot.split(':'))
+                s_min = sh * 60 + sm
+                if any(b_start < s_min < b_end for b_start, b_end in busy_spans):
+                    continue
+            except Exception:
+                pass
             lines.append(f"🟢 <b>{slot}</b> — Свободно")
 
     lines.append("━━━━━━━━━━━━━━━━━━━━━")
