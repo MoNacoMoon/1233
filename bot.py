@@ -615,8 +615,7 @@ def get_main_menu():
 
 def get_staff_menu():
     kb = [
-        [KeyboardButton(text="📱 Журнал записи (Altegio)", web_app=WebAppInfo(url=f"{WEBAPP_URL}/staff"))],
-        [KeyboardButton(text="📅 Расписание мастеров")],
+        [KeyboardButton(text="📱 Журнал записи", web_app=WebAppInfo(url=f"{WEBAPP_URL}/staff"))],
         [KeyboardButton(text="🎬 Работы / Видео"), KeyboardButton(text="📊 Выручка за сегодня")]
     ]
     return ReplyKeyboardMarkup(
@@ -649,8 +648,8 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
     if is_staff or is_salon_group:
         return await message.answer(
             f"💈 <b>Панель управления Daddy Barbershop</b>\n\n"
-            "Используйте кнопки меню внизу для работы с расписанием и видео:\n"
-            "• 📅 <b>Расписание мастеров</b> — записи, свободные слоты и перерывы\n"
+            "Используйте кнопки меню внизу для работы с журналом и видео:\n"
+            "• 📱 <b>Журнал записи</b> — интерактивный журнал и управление слотами\n"
             "• 🎬 <b>Работы / Видео</b> — управление видео в Mini App\n"
             "• 📊 <b>Выручка за сегодня</b> — касса и количество клиентов",
             reply_markup=get_staff_menu(),
@@ -1152,7 +1151,7 @@ async def handle_staff_panel(message: types.Message, command: CommandObject = No
     await message.answer(
         "💈 <b>Панель управления Daddy Barbershop</b>\n\n"
         "Используйте кнопки меню внизу чата для быстрого доступа:\n"
-        "• 📅 <b>Расписание мастеров</b> — график записей, перерывы и слоты\n"
+        "• 📱 <b>Журнал записи</b> — интерактивный журнал и управление слотами\n"
         "• 🎬 <b>Работы / Видео</b> — удаление и добавление видео в Mini App\n"
         "• 📊 <b>Выручка за сегодня</b> — касса и число гостей\n\n"
         "<i>💡 Чтобы загрузить новое видео в ленту: просто отправьте видеоролик прямо в этот чат!</i>",
