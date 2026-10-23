@@ -1576,41 +1576,7 @@
       <div class="section-meta">Свободные слоты</div>
     </div>
     <section class="slots-grid" id="bookingSlotsGrid">
-      <div class="slot-chip" data-time="09:00">09:00</div>
-      <div class="slot-chip" data-time="09:20">09:20</div>
-      <div class="slot-chip" data-time="09:40">09:40</div>
-      <div class="slot-chip" data-time="10:00">10:00</div>
-      <div class="slot-chip" data-time="10:20">10:20</div>
-      <div class="slot-chip" data-time="10:40">10:40</div>
-      <div class="slot-chip" data-time="11:00">11:00</div>
-      <div class="slot-chip" data-time="11:20">11:20</div>
-      <div class="slot-chip" data-time="11:40">11:40</div>
-      <div class="slot-chip" data-time="12:00">12:00</div>
-      <div class="slot-chip" data-time="12:20">12:20</div>
-      <div class="slot-chip" data-time="12:40">12:40</div>
-      <div class="slot-chip" data-time="13:00">13:00</div>
-      <div class="slot-chip" data-time="13:20">13:20</div>
-      <div class="slot-chip" data-time="13:40">13:40</div>
-      <div class="slot-chip" data-time="14:00">14:00</div>
-      <div class="slot-chip" data-time="14:20">14:20</div>
-      <div class="slot-chip" data-time="14:40">14:40</div>
-      <div class="slot-chip" data-time="15:00">15:00</div>
-      <div class="slot-chip" data-time="15:20">15:20</div>
-      <div class="slot-chip" data-time="15:40">15:40</div>
-      <div class="slot-chip" data-time="16:00">16:00</div>
-      <div class="slot-chip" data-time="16:20">16:20</div>
-      <div class="slot-chip" data-time="16:40">16:40</div>
-      <div class="slot-chip" data-time="17:00">17:00</div>
-      <div class="slot-chip" data-time="17:20">17:20</div>
-      <div class="slot-chip" data-time="17:40">17:40</div>
-      <div class="slot-chip" data-time="18:00">18:00</div>
-      <div class="slot-chip" data-time="18:20">18:20</div>
-      <div class="slot-chip" data-time="18:40">18:40</div>
-      <div class="slot-chip" data-time="19:00">19:00</div>
-      <div class="slot-chip" data-time="19:20">19:20</div>
-      <div class="slot-chip" data-time="19:40">19:40</div>
-      <div class="slot-chip" data-time="20:00">20:00</div>
-      <div class="slot-chip" data-time="20:20">20:20</div>
+      <!-- Свободные слоты динамически рассчитываются стык в стык по 40 минут -->
     </section>
 
     <!-- 5. Client Contacts Section -->
@@ -2347,33 +2313,54 @@
       }
     }
 
-    /* Slots API */
+    /* Slots API - Динамическая цепочка свободных слотов стык в стык по 40 минут */
     async function fetchAvailableSlots() {
       if (!bookingState.selectedDateString) return;
       try {
         const queryUrl = `/api/slots?barber=${encodeURIComponent(bookingState.selectedMasterName)}&date=${encodeURIComponent(bookingState.selectedDateString)}`;
         const res = await secureFetch(queryUrl);
         const data = await res.json();
-        const busy = data.busy || [];
+        const grid = document.getElementById('bookingSlotsGrid');
+        const slots = data.slots || data.available || [];
 
-        let valid = false;
-        document.querySelectorAll('#bookingSlotsGrid .slot-chip').forEach(chip => {
-          const t = chip.dataset.time;
-          if (busy.includes(t)) {
-            chip.classList.add('disabled');
-            chip.classList.remove('active');
-          } else {
-            chip.classList.remove('disabled');
-            if (chip.classList.contains('active')) valid = true;
+        grid.innerHTML = '';
+        if (!slots || slots.length === 0) {
+          grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--steel-muted); padding: 18px 0; font-size: 13px;">На этот день все места заняты</div>';
+          bookingState.selectedTimeString = "";
+          synchronizeTelegramMainButton();
+          return;
+        }
+
+        let selectedStillValid = false;
+        slots.forEach((t) => {
+          const chip = document.createElement('div');
+          chip.className = 'slot-chip';
+          chip.dataset.time = t;
+          chip.innerText = t;
+
+          if (bookingState.selectedTimeString === t) {
+            chip.classList.add('active');
+            selectedStillValid = true;
           }
+
+          chip.addEventListener('click', () => {
+            grid.querySelectorAll('.slot-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            bookingState.selectedTimeString = t;
+            triggerHaptic('light');
+            synchronizeTelegramMainButton();
+          });
+
+          grid.appendChild(chip);
         });
 
-        if (!valid) {
-          bookingState.selectedTimeString = "";
-          const firstFree = document.querySelector('#bookingSlotsGrid .slot-chip:not(.disabled)');
-          if (firstFree) {
-            firstFree.classList.add('active');
-            bookingState.selectedTimeString = firstFree.dataset.time;
+        if (!selectedStillValid) {
+          const firstChip = grid.querySelector('.slot-chip');
+          if (firstChip) {
+            firstChip.classList.add('active');
+            bookingState.selectedTimeString = firstChip.dataset.time;
+          } else {
+            bookingState.selectedTimeString = "";
           }
         }
         synchronizeTelegramMainButton();
@@ -2381,18 +2368,6 @@
         console.error("Slots fetch error:", e);
       }
     }
-
-    /* Slots Click */
-    document.querySelectorAll('#bookingSlotsGrid .slot-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        if (chip.classList.contains('disabled')) return;
-        document.querySelectorAll('#bookingSlotsGrid .slot-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        bookingState.selectedTimeString = chip.dataset.time;
-        triggerHaptic('light');
-        synchronizeTelegramMainButton();
-      });
-    });
 
     /* Keep Telegram bottom MainButton hidden - client uses in-page booking button */
     function synchronizeTelegramMainButton() {

@@ -64,18 +64,9 @@ DEFAULT_MASTER_ID = "yakov"
 DEFAULT_MASTER_NAME = "Yakov"
 ALL_BARBERS = ["Yakov", "Рувим", "Лиза"]
 SCHEDULE_SLOTS = [
-    "09:00", "09:20", "09:40",
-    "10:00", "10:20", "10:40",
-    "11:00", "11:20", "11:40",
-    "12:00", "12:20", "12:40",
-    "13:00", "13:20", "13:40",
-    "14:00", "14:20", "14:40",
-    "15:00", "15:20", "15:40",
-    "16:00", "16:20", "16:40",
-    "17:00", "17:20", "17:40",
-    "18:00", "18:20", "18:40",
-    "19:00", "19:20", "19:40",
-    "20:00", "20:20"
+    "09:00", "09:40", "10:20", "11:00", "11:40", "12:20", "13:00", "13:40",
+    "14:20", "15:00", "15:40", "16:20", "17:00", "17:40", "18:20", "19:00",
+    "19:40", "20:20"
 ]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -515,6 +506,82 @@ def get_booked_times(barber: str, date_str: str):
                 break
 
     return list(busy_slots)
+
+
+def get_master_free_slots(barber_name: str, date_str: str, duration: int = 40) -> list[str]:
+    """Вычисляет непрерывную цепочку 40-минутных слотов стык в стык по свободным окнам мастера."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT booking_time, COALESCE(duration, 40) FROM appointments 
+        WHERE barber = ? AND booking_date = ? AND status = 'active'
+    """, (barber_name, date_str))
+    app_items = cur.fetchall()
+
+    cur.execute("""
+        SELECT booking_time, COALESCE(duration, 40) FROM blocked_slots
+        WHERE (barber = ? OR barber = 'all') AND booking_date = ?
+    """, (barber_name, date_str))
+    blk_items = cur.fetchall()
+    conn.close()
+
+    DAY_START = 9 * 60   # 09:00 (540 мин)
+    DAY_END = 21 * 60    # 21:00 (1260 мин)
+
+    busy_spans = []
+    for b_time, b_dur in (app_items + blk_items):
+        try:
+            h, m = map(int, b_time.split(':'))
+            s = h * 60 + m
+            e = s + (b_dur or 40)
+            busy_spans.append((s, e))
+        except Exception:
+            pass
+
+    busy_spans.sort(key=lambda x: x[0])
+    merged = []
+    for s, e in busy_spans:
+        s = max(DAY_START, s)
+        e = min(DAY_END, e)
+        if s >= e:
+            continue
+        if not merged:
+            merged.append([s, e])
+        else:
+            if s <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], e)
+            else:
+                merged.append([s, e])
+
+    free_windows = []
+    curr = DAY_START
+    for s, e in merged:
+        if s > curr:
+            free_windows.append((curr, s))
+        curr = max(curr, e)
+    if curr < DAY_END:
+        free_windows.append((curr, DAY_END))
+
+    available = []
+    for w_s, w_e in free_windows:
+        slot = w_s
+        while slot + duration <= w_e:
+            hh = slot // 60
+            mm = slot % 60
+            available.append(f"{hh:02d}:{mm:02d}")
+            slot += duration
+
+    return available
+
+
+def get_dynamic_available_slots(barber: str, date_str: str, duration: int = 40) -> list[str]:
+    """Возвращает доступные слоты стык в стык для мастера либо объединенные для 'Любой мастер'."""
+    if barber == "Любой мастер":
+        all_slots = set()
+        for b in ALL_BARBERS:
+            all_slots.update(get_master_free_slots(b, date_str, duration))
+        return sorted(list(all_slots))
+    return get_master_free_slots(barber, date_str, duration)
 
 
 def get_user_active_bookings(user_id: int):
@@ -2019,7 +2086,8 @@ async def api_get_busy_slots(request):
     raw_date = request.query.get("date", "")
     date = clean_input(raw_date, 10)
     busy = get_booked_times(barber, date)
-    return web.json_response({"busy": busy})
+    slots = get_dynamic_available_slots(barber, date, duration=40)
+    return web.json_response({"status": "ok", "slots": slots, "available": slots, "busy": busy})
 
 
 async def api_get_user_profile(request):
